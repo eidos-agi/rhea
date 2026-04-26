@@ -14,15 +14,14 @@ import {
   routeChatCompletion,
   Pod,
   loadSession,
-  saveSession,
-  generateSessionId
+  saveSession
 } from "@rhea/lib";
 import providers from "../../providers.json" with { type: "json" };
 
 const server = new Server(
   {
     name: "rhea-mcp",
-    version: "1.0.0",
+    version: "1.1.0",
   },
   {
     capabilities: {
@@ -30,6 +29,13 @@ const server = new Server(
     },
   }
 );
+
+/**
+ * Helper to get available logical models from providers.json
+ */
+function getAvailableModels(): string[] {
+  return Object.keys(providers).filter(m => m !== 'draw');
+}
 
 /**
  * Executes a Rhea prompt through the fallback chain with session support
@@ -70,11 +76,14 @@ async function executeRheaPrompt(model: string, prompt: string, sessionId?: stri
 }
 
 server.setRequestHandler(ListToolsRequestSchema, async () => {
+  const models = getAvailableModels();
+  const defaultModel = models[0] || "claude-pro";
+
   return {
     tools: [
       {
         name: "rhea_debate",
-        description: "Run a three-model Socratic debate (Dreamer/Doubter/Decider) to orchestrate high-quality intelligence.",
+        description: "Run a three-model Socratic debate (Dreamer/Doubter/Decider) for high-fidelity reasoning.",
         inputSchema: {
           type: "object",
           properties: {
@@ -83,9 +92,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             max_rounds: { type: "number", description: "Max rounds of debate before forcing a decision", default: 3 },
             models: { 
               type: "array", 
-              items: { type: "string" }, 
-              description: "List of 3 models to use",
-              default: ["claude-pro", "gemini-advanced", "openrouter:auto"]
+              items: { type: "string", enum: models }, 
+              description: "Optional list of up to 3 models to use. If fewer than 3 are provided, they will be recycled.",
+              default: models.slice(0, 3)
             },
           },
           required: ["question"],
@@ -98,7 +107,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           type: "object",
           properties: {
             prompt: { type: "string", description: "The prompt to send" },
-            model: { type: "string", description: "Logical model name", default: "claude-pro" },
+            model: { 
+              type: "string", 
+              description: "Logical model name", 
+              enum: models,
+              default: defaultModel 
+            },
             session_id: { type: "string", description: "Optional session ID to continue a conversation" }
           },
           required: ["prompt"],
@@ -135,13 +149,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "rhea_draw",
-        description: "Generate or edit an image using Rhea's image models with optional session persistence.",
+        description: "Generate or edit an image using Rhea's image models.",
         inputSchema: {
           type: "object",
           properties: {
-            prompt: { type: "string", description: "The image description or edit instruction" },
+            prompt: { type: "string", description: "The image description" },
             output_path: { type: "string", description: "Where to save the resulting image locally" },
-            model: { type: "string", description: "Optional model name", default: "draw" },
+            model: { type: "string", description: "Model name", default: "draw" },
             session_id: { type: "string", description: "Optional session ID for multi-turn editing" }
           },
           required: ["prompt", "output_path"],
@@ -153,12 +167,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const config = loadClientConfig();
+  const availableModels = getAvailableModels();
 
   switch (request.params.name) {
     case "ask_rhea": {
       const { prompt, model, session_id } = request.params.arguments as any;
       try {
-        const response = await executeRheaPrompt(model || "claude-pro", prompt, session_id);
+        const response = await executeRheaPrompt(model || availableModels[0] || "claude-pro", prompt, session_id);
         return {
           content: [{ type: "text", text: response }],
         };
@@ -172,7 +187,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     case "rhea_debate": {
       const { question, context, max_rounds, models } = request.params.arguments as any;
-      const pod = new Pod(models || ["claude-pro", "gemini-advanced", "openrouter:auto"], config);
+      const podModels = models && models.length > 0 ? models : availableModels.slice(0, 3);
+      
+      if (podModels.length === 0) {
+        return { content: [{ type: "text", text: "Error: No models configured in providers.json" }], isError: true };
+      }
+
+      const pod = new Pod(podModels, config);
       try {
         const result = await pod.debate(question, { context, maxRounds: max_rounds });
         return {
@@ -188,7 +209,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     case "rhea_quick": {
       const { question } = request.params.arguments as any;
-      const pod = new Pod(["claude-pro", "gemini-advanced", "openrouter:auto"], config);
+      const pod = new Pod(availableModels.slice(0, 3), config);
       try {
         const result = await pod.debate(question, { maxRounds: 1 });
         return {

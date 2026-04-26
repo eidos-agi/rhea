@@ -31,7 +31,15 @@ export class Pod {
   private clientConfig: ClientConfig;
 
   constructor(modelNames: string[], clientConfig: ClientConfig, adversarialRate: number = 0.07) {
-    this.modelNames = modelNames;
+    // Ensure we have exactly 3 models by recycling if needed
+    if (modelNames.length === 0) {
+      throw new Error("At least one model must be provided for the Rhea Pod.");
+    }
+    this.modelNames = [...modelNames];
+    while (this.modelNames.length < 3) {
+      this.modelNames.push(this.modelNames[this.modelNames.length % modelNames.length]);
+    }
+    
     this.clientConfig = clientConfig;
     this.adversarialRate = adversarialRate;
     
