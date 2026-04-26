@@ -527,11 +527,32 @@ else if (command === 'code') {
   });
   let requirement = promptArgs.join(' ');
 
-  // Automatic Context: If the requirement mentions a file that exists, read it
-  const potentialFile = requirement.split(' ').find(word => fs.existsSync(word) && fs.statSync(word).isFile());
-  if (potentialFile) {
-    console.log(`📖 Reading context from: ${potentialFile}`);
-    requirement = `FILE CONTEXT (${potentialFile}):\n${fs.readFileSync(potentialFile, 'utf8')}\n\nREQUIRMENT: ${requirement}`;
+  // Smart Discovery: Look for filenames mentioned in the requirement
+  const words = requirement.split(/\s+/);
+  const foundFiles = new Set<string>();
+
+  for (const word of words) {
+    const cleanWord = word.replace(/[`,!"']/g, '');
+    if (fs.existsSync(cleanWord) && fs.statSync(cleanWord).isFile()) {
+      foundFiles.add(cleanWord);
+    } else if (cleanWord.includes('.') && cleanWord.length > 3) {
+      // Try to find the file in subdirectories (limit to 3 levels for speed/safety)
+      try {
+        const found = execSync(`find . -maxdepth 3 -name "${cleanWord}" -not -path "*/node_modules/*"`, { encoding: 'utf8' }).trim().split('\n')[0];
+        if (found && fs.existsSync(found)) {
+          foundFiles.add(found);
+        }
+      } catch (e) { /* ignore find errors */ }
+    }
+  }
+
+  if (foundFiles.size > 0) {
+    let contextBundle = "";
+    for (const file of foundFiles) {
+      console.log(`📖 Adding local context from: ${file}`);
+      contextBundle += `FILE: ${file}\n---\n${fs.readFileSync(file, 'utf8')}\n---\n\n`;
+    }
+    requirement = `${contextBundle}REQUIRMENT: ${requirement}`;
   }
 
   (async () => {
