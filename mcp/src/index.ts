@@ -8,9 +8,11 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { 
   loadClientConfig, 
+  saveClientConfig,
   getOrderedServers, 
   rpc, 
-  routeChatCompletion 
+  routeChatCompletion,
+  Pod
 } from "@rhea/lib";
 import providers from "../../providers.json" with { type: "json" };
 
@@ -26,91 +28,130 @@ const server = new Server(
   }
 );
 
-/**
- * Executes a Rhea prompt through the fallback chain
- */
-async function executeRheaPrompt(model: string, prompt: string) {
-  const config = loadClientConfig();
-  const orderedServers = getOrderedServers(config);
-  
-  for (const srv of orderedServers) {
-    try {
-      const generator = rpc(srv, 'ask', { model, messages: [{ role: 'user', content: prompt }], stream: false });
-      let finalRes;
-      for await (const chunk of generator) {
-        finalRes = chunk;
-      }
-      return finalRes.choices[0].message.content;
-    } catch (e) {
-      // Fallback to next
-    }
-  }
-
-  // Final local fallback
-  const generator = routeChatCompletion(model, [{ role: 'user', content: prompt }], false);
-  let finalRes;
-  for await (const chunk of generator) {
-    finalRes = chunk;
-  }
-  return (finalRes as any).choices[0].message.content;
-}
-
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
       {
-        name: "ask_rhea",
-        description: "Ask a question to Rhea's orchestrated AI models (Claude, Gemini, etc.)",
+        name: "rhea_debate",
+        description: "Run a three-model Socratic debate (Dreamer/Doubter/Decider) to orchestrate high-quality intelligence.",
         inputSchema: {
           type: "object",
           properties: {
-            prompt: { type: "string", description: "The prompt to send to the model" },
-            model: { 
-              type: "string", 
-              description: "Optional logical model name (e.g., claude-pro, gemini-advanced)",
-              default: "claude-pro"
+            question: { type: "string", description: "The central question or task to debate" },
+            context: { type: "string", description: "Optional background context" },
+            max_rounds: { type: "number", description: "Max rounds of debate before forcing a decision", default: 3 },
+            models: { 
+              type: "array", 
+              items: { type: "string" }, 
+              description: "List of 3 models to use (e.g., ['claude-pro', 'gemini-advanced', 'openrouter:auto'])",
+              default: ["claude-pro", "gemini-advanced", "openrouter:auto"]
             },
           },
-          required: ["prompt"],
+          required: ["question"],
         },
       },
       {
-        name: "list_rhea_servers",
-        description: "List configured Rhea remote servers and their status",
+        name: "rhea_quick",
+        description: "A single-round quick sanity check using the Rhea Pod architecture.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            question: { type: "string", description: "The question to check" },
+          },
+          required: ["question"],
+        },
+      },
+      {
+        name: "rhea_status",
+        description: "Check the status of configured Rhea servers and local providers.",
         inputSchema: { type: "object", properties: {} },
+      },
+      {
+        name: "rhea_pair",
+        description: "Pair this Rhea instance with a remote server using a short code.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            label: { type: "string", description: "A friendly name for the server" },
+            host: { type: "string", description: "The SSH host (e.g., user@mac-laptop)" },
+            code: { type: "string", description: "The 6-character pairing code from the server" },
+          },
+          required: ["label", "host", "code"],
+        },
       }
     ],
   };
 });
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  const config = loadClientConfig();
+
   switch (request.params.name) {
-    case "ask_rhea": {
-      const prompt = String(request.params.arguments?.prompt);
-      const model = String(request.params.arguments?.model || "claude-pro");
-      
+    case "rhea_debate": {
+      const { question, context, max_rounds, models } = request.params.arguments as any;
+      const pod = new Pod(models || ["claude-pro", "gemini-advanced", "openrouter:auto"], config);
       try {
-        const response = await executeRheaPrompt(model, prompt);
+        const result = await pod.debate(question, { context, maxRounds: max_rounds });
         return {
-          content: [{ type: "text", text: response }],
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
         };
       } catch (err: any) {
         return {
-          content: [{ type: "text", text: `Error executing Rhea prompt: ${err.message}` }],
+          content: [{ type: "text", text: `Debate failed: ${err.message}` }],
           isError: true,
         };
       }
     }
 
-    case "list_rhea_servers": {
-      const config = loadClientConfig();
+    case "rhea_quick": {
+      const { question } = request.params.arguments as any;
+      const pod = new Pod(["claude-pro", "gemini-advanced", "openrouter:auto"], config);
+      try {
+        const result = await pod.debate(question, { maxRounds: 1 });
+        return {
+          content: [{ type: "text", text: result.decision || "No decision reached." }],
+        };
+      } catch (err: any) {
+        return {
+          content: [{ type: "text", text: `Quick check failed: ${err.message}` }],
+          isError: true,
+        };
+      }
+    }
+
+    case "rhea_status": {
       const servers = Object.entries(config.servers).map(([name, srv]) => {
         return `${name === config.activeServer ? "*" : " "} ${name} (${srv.host})`;
       }).join("\n");
+      const localModels = Object.keys(providers).join(", ");
       
+      const statusText = `Remote Servers:\n${servers || "None"}\n\nLocal Models: ${localModels}`;
       return {
-        content: [{ type: "text", text: servers || "No remote servers configured." }],
+        content: [{ type: "text", text: statusText }],
       };
+    }
+
+    case "rhea_pair": {
+      const { label, host, code } = request.params.arguments as any;
+      try {
+        const tempServer = { host, token: "" };
+        const generator = rpc(tempServer, 'exchange-code', { code });
+        let result;
+        for await (const chunk of generator) { result = chunk; }
+        
+        config.servers[label] = { host, token: result.token };
+        if (!config.activeServer) config.activeServer = label;
+        saveClientConfig(config);
+        
+        return {
+          content: [{ type: "text", text: `✅ Successfully paired with ${label} (${host})` }],
+        };
+      } catch (err: any) {
+        return {
+          content: [{ type: "text", text: `Pairing failed: ${err.message}` }],
+          isError: true,
+        };
+      }
     }
 
     default:
