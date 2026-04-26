@@ -68,7 +68,8 @@ const config = providers as Record<string, Provider>;
 export async function* routeChatCompletion(
   modelReq: string, 
   messages: Message[], 
-  stream: boolean = false
+  stream: boolean = false,
+  sessionId?: string
 ): AsyncGenerator<StreamChunk | OpenAIResponse> {
   const provider = config[modelReq];
 
@@ -79,7 +80,10 @@ export async function* routeChatCompletion(
   const prompt = messages.map(m => `${m.role.toUpperCase()}:\n${m.content}`).join('\n\n');
 
   if (provider.type === 'cli') {
-    const args = provider.cmd.map(arg => arg.replace('{prompt}', prompt));
+    let args = provider.cmd.map(arg => arg.replace('{prompt}', prompt));
+    if (sessionId) {
+      args.push('--session', sessionId);
+    }
     const command = args[0];
     const cmdArgs = args.slice(1);
 
@@ -179,7 +183,7 @@ export async function* routeChatCompletion(
   }
 }
 
-export async function generateImage(modelReq: string, prompt: string): Promise<ImageResponse> {
+export async function generateImage(modelReq: string, prompt: string, sessionId?: string): Promise<ImageResponse> {
   const provider = config[modelReq];
 
   if (!provider) {
@@ -188,9 +192,13 @@ export async function generateImage(modelReq: string, prompt: string): Promise<I
 
   if (provider.type === 'cli') {
     const tempFile = path.join(os.tmpdir(), `rhea-${Math.random().toString(36).slice(2)}.png`);
-    const args = provider.cmd.map(arg => 
+    let args = provider.cmd.map(arg => 
       arg.replace('{prompt}', prompt).replace('{output}', tempFile)
     );
+    
+    if (sessionId) {
+      args.push('--session', sessionId);
+    }
     
     const command = args[0];
     const cmdArgs = args.slice(1);

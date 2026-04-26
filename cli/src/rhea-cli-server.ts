@@ -90,7 +90,7 @@ if (command === 'daemon') {
       req.on('end', async () => {
         try {
           const data = JSON.parse(body);
-          const generator = routeChatCompletion(data.model, data.messages || [], data.stream);
+          const generator = routeChatCompletion(data.model, data.messages || [], data.stream, data.sessionId);
           
           if (data.stream) {
             res.writeHead(200, { 'Content-Type': 'text/event-stream' });
@@ -177,7 +177,7 @@ if (command === 'rpc') {
 
       // 4. Handle ASK
       if (payload.action === 'ask') {
-        const generator = routeChatCompletion(payload.model, payload.messages, payload.stream);
+        const generator = routeChatCompletion(payload.model, payload.messages, payload.stream, payload.sessionId);
         for await (const chunk of generator) {
           console.log(JSON.stringify(chunk));
         }
@@ -187,7 +187,7 @@ if (command === 'rpc') {
       // 5. Handle DRAW
       if (payload.action === 'draw') {
         const { generateImage } = await import('@rhea/lib');
-        const response = await generateImage(payload.model, payload.prompt);
+        const response = await generateImage(payload.model, payload.prompt, payload.sessionId);
         console.log(JSON.stringify(response));
         process.exit(0);
       }

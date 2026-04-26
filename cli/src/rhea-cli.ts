@@ -12,7 +12,10 @@ import {
   getCachedResponse,
   saveToCache,
   clearCache,
-  ServerProfile
+  ServerProfile,
+  generateSessionId,
+  saveSession,
+  loadSession
 } from '@rhea/lib';
 
 const args = process.argv.slice(2);
@@ -171,15 +174,19 @@ if (command === 'ask') {
   const modelIndex = args.indexOf('--model');
   const model = modelIndex > -1 ? args[modelIndex + 1] : 'claude-pro';
   
-  // Remove --server and --no-cache flags
   const serverFlagIndex = args.indexOf('--server');
   const noCache = args.includes('--no-cache');
   
+  const sessionIndex = args.indexOf('--session');
+  const newSession = args.includes('--new-session');
+  let sessionId = sessionIndex > -1 ? args[sessionIndex + 1] : (newSession ? generateSessionId() : null);
+
   let promptArgs = args.filter((arg, i) => {
-    if (i === 0) return false; // skip command
+    if (i === 0) return false;
     if (i === modelIndex || i === modelIndex + 1) return false;
     if (i === serverFlagIndex || i === serverFlagIndex + 1) return false;
-    if (arg === '--no-cache') return false;
+    if (i === sessionIndex || i === sessionIndex + 1) return false;
+    if (arg === '--no-cache' || arg === '--new-session') return false;
     return true;
   });
   
@@ -188,9 +195,9 @@ if (command === 'ask') {
   if (!prompt && !process.stdin.isTTY) {
     let stdinData = '';
     process.stdin.on('data', (chunk: Buffer) => stdinData += chunk);
-    process.stdin.on('end', () => runQuery(model, stdinData.trim(), noCache));
+    process.stdin.on('end', () => runQuery(model, stdinData.trim(), { noCache, sessionId }));
   } else {
-    runQuery(model, prompt, noCache);
+    runQuery(model, prompt, { noCache, sessionId });
   }
 }
 
@@ -202,12 +209,18 @@ if (command === 'draw') {
   const model = modelIndex > -1 ? args[modelIndex + 1] : 'draw';
   
   const serverFlagLabel = getActiveServerLabel();
+
+  const sessionIndex = args.indexOf('--session');
+  const newSession = args.includes('--new-session');
+  let sessionId = sessionIndex > -1 ? args[sessionIndex + 1] : (newSession ? generateSessionId() : null);
   
   let promptArgs = args.filter((arg, i) => {
     if (i === 0) return false;
     if (i === outputIndex || i === outputIndex + 1) return false;
     if (i === modelIndex || i === modelIndex + 1) return false;
     if (arg === '--server' || (i > 0 && args[i-1] === '--server')) return false;
+    if (i === sessionIndex || i === sessionIndex + 1) return false;
+    if (arg === '--new-session') return false;
     return true;
   });
   const prompt = promptArgs.join(' ');
@@ -219,20 +232,24 @@ if (command === 'draw') {
 
   (async () => {
     try {
+      if (sessionId && newSession) console.log(`🆕 Starting new session: ${sessionId}`);
+      else if (sessionId) console.log(`💬 Using session: ${sessionId}`);
+
       const server = serverFlagLabel ? config.servers[serverFlagLabel] : null;
       let response;
 
       if (server) {
-        const generator = rpc(server, 'draw', { model, prompt });
+        const generator = rpc(server, 'draw', { model, prompt, sessionId });
         for await (const chunk of generator) { response = chunk; }
       } else {
         const { generateImage } = await import('@rhea/lib');
-        response = await generateImage(model, prompt);
+        response = await generateImage(model, prompt, sessionId || undefined);
       }
 
       if (response.data?.[0]?.b64_json) {
         fs.writeFileSync(output, Buffer.from(response.data[0].b64_json, 'base64'));
         console.log(`🎨 Image saved to: ${output}`);
+        if (sessionId) console.log(`🔗 Session ID: ${sessionId} (use with --session to edit)`);
       } else {
         throw new Error("No image data received from server");
       }
@@ -289,24 +306,28 @@ if (command === 'list') {
   }
 } else if (!['pair', 'status', 'ask', 'list', 'unpair', 'servers', 'use', 'order', 'cache', 'draw'].includes(command as string)) {
   console.log(`Usage: 
-  rhea-cli pair <label> <host> --token <token>
-  rhea-cli pair <label> <host> --code <code>
+  rhea-cli pair <label> <host> [--token <token> | --code <code>]
   rhea-cli servers
   rhea-cli use <label>
   rhea-cli order <server1> <server2> ...
   rhea-cli status [--server <label>]
-  rhea-cli draw [--server <label>] [--model <model>] --output <path.png> <prompt>
+  rhea-cli draw [--server <label>] [--model <model>] [--session <id> | --new-session] --output <path.png> <prompt>
   rhea-cli unpair <label>
   rhea-cli list [--server <label>]
-  rhea-cli ask [--server <label>] [--model <model>] [--no-cache] <prompt>
+  rhea-cli ask [--server <label>] [--model <model>] [--no-cache] [--session <id> | --new-session] <prompt>
   rhea-cli cache clear`);
 }
 
-async function runQuery(model: string, prompt: string, noCache: boolean = false) {
-  const messages = [{ role: 'user', content: prompt }];
+async function runQuery(model: string, prompt: string, opts: { noCache?: boolean, sessionId?: string | null } = {}) {
+  const history = opts.sessionId ? loadSession(opts.sessionId) : [];
+  const messages = [...history, { role: 'user', content: prompt }];
+  
+  if (opts.sessionId && !history.length) console.log(`🆕 Starting new session: ${opts.sessionId}`);
+  else if (opts.sessionId) console.log(`💬 Resuming session: ${opts.sessionId}`);
+
   const cacheKey = getCacheKey(model, messages);
   
-  if (!noCache) {
+  if (!opts.noCache) {
     const cached = getCachedResponse(cacheKey);
     if (cached) {
       console.log("(served from cache)");
@@ -318,20 +339,29 @@ async function runQuery(model: string, prompt: string, noCache: boolean = false)
   const labelOverride = getActiveServerLabel();
   let finalContent = '';
   
+  const handleChunk = (chunk: any) => {
+    if (chunk.choices?.[0]?.delta?.content) {
+      const c = chunk.choices[0].delta.content;
+      finalContent += c;
+      process.stdout.write(c);
+    } else if (chunk.object === "chat.completion") {
+      const c = chunk.choices[0].message.content;
+      finalContent = c;
+      process.stdout.write(c);
+    }
+  };
+
   if (labelOverride && config.servers[labelOverride]) {
-    // Direct target
     try {
-      const generator = rpc(config.servers[labelOverride], 'ask', { model, messages, stream: true });
-      for await (const chunk of generator) {
-        const anyChunk = chunk as any;
-        if (anyChunk.choices?.[0]?.delta?.content) {
-          const c = anyChunk.choices[0].delta.content;
-          finalContent += c;
-          process.stdout.write(c);
-        }
-      }
+      const generator = rpc(config.servers[labelOverride], 'ask', { model, messages, stream: true, sessionId: opts.sessionId });
+      for await (const chunk of generator) { handleChunk(chunk); }
       process.stdout.write('\n');
       saveToCache(cacheKey, { choices: [{ message: { role: 'assistant', content: finalContent } }] });
+      if (opts.sessionId) {
+        messages.push({ role: 'assistant', content: finalContent });
+        saveSession(opts.sessionId, messages);
+        console.log(`🔗 Session ID: ${opts.sessionId}`);
+      }
       return;
     } catch (err: any) {
       console.error(`❌ Error on targeted server ${labelOverride}: ${err.message}`);
@@ -339,46 +369,34 @@ async function runQuery(model: string, prompt: string, noCache: boolean = false)
     }
   }
 
-  // Fallback Loop
   const orderedServers = getOrderedServers(config);
-  
   for (const server of orderedServers) {
     try {
-      const generator = rpc(server, 'ask', { model, messages, stream: true });
-      for await (const chunk of generator) {
-        const anyChunk = chunk as any;
-        if (anyChunk.choices?.[0]?.delta?.content) {
-          const c = anyChunk.choices[0].delta.content;
-          finalContent += c;
-          process.stdout.write(c);
-        }
-      }
+      const generator = rpc(server, 'ask', { model, messages, stream: true, sessionId: opts.sessionId });
+      for await (const chunk of generator) { handleChunk(chunk); }
       process.stdout.write('\n');
       saveToCache(cacheKey, { choices: [{ message: { role: 'assistant', content: finalContent } }] });
-      return; // Success!
+      if (opts.sessionId) {
+        messages.push({ role: 'assistant', content: finalContent });
+        saveSession(opts.sessionId, messages);
+        console.log(`🔗 Session ID: ${opts.sessionId}`);
+      }
+      return;
     } catch (err: any) {
       console.warn(`⚠️ Server ${server.name} failed/offline, trying next...`);
     }
   }
 
-  // Final Local Fallback
   try {
-    const generator = routeChatCompletion(model, messages, true);
-    for await (const chunk of generator) {
-      const anyChunk = chunk as any;
-      if (anyChunk.object === "chat.completion.chunk" && anyChunk.choices?.[0]?.delta?.content) {
-        const c = anyChunk.choices[0].delta.content;
-        finalContent += c;
-        process.stdout.write(c);
-      } else if (anyChunk.object === "chat.completion") {
-        // Fallback for non-streaming providers if any
-        const c = anyChunk.choices[0].message.content;
-        finalContent = c;
-        process.stdout.write(c);
-      }
-    }
+    const generator = routeChatCompletion(model, messages, true, opts.sessionId || undefined);
+    for await (const chunk of generator) { handleChunk(chunk); }
     process.stdout.write('\n');
     saveToCache(cacheKey, { choices: [{ message: { role: 'assistant', content: finalContent } }] });
+    if (opts.sessionId) {
+      messages.push({ role: 'assistant', content: finalContent });
+      saveSession(opts.sessionId, messages);
+      console.log(`🔗 Session ID: ${opts.sessionId}`);
+    }
   } catch (err: any) {
     console.error(`❌ All servers and local execution failed.`);
     console.error(`   Last error: ${err.message}`);

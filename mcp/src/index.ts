@@ -12,7 +12,10 @@ import {
   getOrderedServers, 
   rpc, 
   routeChatCompletion,
-  Pod
+  Pod,
+  loadSession,
+  saveSession,
+  generateSessionId
 } from "@rhea/lib";
 import providers from "../../providers.json" with { type: "json" };
 
@@ -29,32 +32,41 @@ const server = new Server(
 );
 
 /**
- * Executes a Rhea prompt through the fallback chain
+ * Executes a Rhea prompt through the fallback chain with session support
  */
-async function executeRheaPrompt(model: string, prompt: string) {
+async function executeRheaPrompt(model: string, prompt: string, sessionId?: string) {
   const config = loadClientConfig();
-  const orderedServers = getOrderedServers(config);
+  const history = sessionId ? loadSession(sessionId) : [];
+  const messages = [...history, { role: 'user', content: prompt }];
   
+  const orderedServers = getOrderedServers(config);
+  let finalContent = "";
+  let success = false;
+
   for (const srv of orderedServers) {
     try {
-      const generator = rpc(srv, 'ask', { model, messages: [{ role: 'user', content: prompt }], stream: false });
-      let finalRes;
-      for await (const chunk of generator) {
-        finalRes = chunk;
-      }
-      return finalRes.choices[0].message.content;
-    } catch (e) {
-      // Fallback to next
-    }
+      const generator = rpc(srv, 'ask', { model, messages, stream: false, sessionId });
+      let result;
+      for await (const chunk of generator) { result = chunk; }
+      finalContent = result.choices[0].message.content;
+      success = true;
+      break;
+    } catch (e) { /* next */ }
   }
 
-  // Final local fallback
-  const generator = routeChatCompletion(model, [{ role: 'user', content: prompt }], false);
-  let finalRes;
-  for await (const chunk of generator) {
-    finalRes = chunk;
+  if (!success) {
+    const generator = routeChatCompletion(model, messages, false, sessionId);
+    let result;
+    for await (const chunk of generator) { result = chunk; }
+    finalContent = (result as any).choices[0].message.content;
   }
-  return (finalRes as any).choices[0].message.content;
+
+  if (sessionId) {
+    messages.push({ role: 'assistant', content: finalContent });
+    saveSession(sessionId, messages);
+  }
+
+  return finalContent;
 }
 
 server.setRequestHandler(ListToolsRequestSchema, async () => {
@@ -72,12 +84,25 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             models: { 
               type: "array", 
               items: { type: "string" }, 
-              description: "List of 3 models to use (e.g., ['claude-pro', 'gemini-advanced', 'openrouter:auto'])",
+              description: "List of 3 models to use",
               default: ["claude-pro", "gemini-advanced", "openrouter:auto"]
             },
           },
           required: ["question"],
         },
+      },
+      {
+        name: "ask_rhea",
+        description: "Ask a question to Rhea's orchestrated AI models with optional session persistence.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            prompt: { type: "string", description: "The prompt to send" },
+            model: { type: "string", description: "Logical model name", default: "claude-pro" },
+            session_id: { type: "string", description: "Optional session ID to continue a conversation" }
+          },
+          required: ["prompt"],
+        }
       },
       {
         name: "rhea_quick",
@@ -110,13 +135,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "rhea_draw",
-        description: "Generate an image using Rhea's image models (e.g., Nano Banana).",
+        description: "Generate or edit an image using Rhea's image models with optional session persistence.",
         inputSchema: {
           type: "object",
           properties: {
-            prompt: { type: "string", description: "The image description" },
+            prompt: { type: "string", description: "The image description or edit instruction" },
             output_path: { type: "string", description: "Where to save the resulting image locally" },
-            model: { type: "string", description: "Optional model name", default: "draw" }
+            model: { type: "string", description: "Optional model name", default: "draw" },
+            session_id: { type: "string", description: "Optional session ID for multi-turn editing" }
           },
           required: ["prompt", "output_path"],
         },
@@ -129,6 +155,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const config = loadClientConfig();
 
   switch (request.params.name) {
+    case "ask_rhea": {
+      const { prompt, model, session_id } = request.params.arguments as any;
+      try {
+        const response = await executeRheaPrompt(model || "claude-pro", prompt, session_id);
+        return {
+          content: [{ type: "text", text: response }],
+        };
+      } catch (err: any) {
+        return {
+          content: [{ type: "text", text: `Ask failed: ${err.message}` }],
+          isError: true,
+        };
+      }
+    }
+
     case "rhea_debate": {
       const { question, context, max_rounds, models } = request.params.arguments as any;
       const pod = new Pod(models || ["claude-pro", "gemini-advanced", "openrouter:auto"], config);
@@ -197,7 +238,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     case "rhea_draw": {
-      const { prompt, output_path, model } = request.params.arguments as any;
+      const { prompt, output_path, model, session_id } = request.params.arguments as any;
       const { generateImage } = await import('@rhea/lib');
       const fs = await import('fs');
       
@@ -208,7 +249,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         for (const server of orderedServers) {
           try {
-            const generator = rpc(server, 'draw', { model: model || 'draw', prompt });
+            const generator = rpc(server, 'draw', { model: model || 'draw', prompt, sessionId: session_id });
             for await (const chunk of generator) { response = chunk; }
             success = true;
             break;
@@ -216,13 +257,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
 
         if (!success) {
-          response = await generateImage(model || 'draw', prompt);
+          response = await generateImage(model || 'draw', prompt, session_id);
         }
 
         if (response.data?.[0]?.b64_json) {
           fs.writeFileSync(output_path, Buffer.from(response.data[0].b64_json, 'base64'));
           return {
-            content: [{ type: "text", text: `🎨 Image generated and saved to ${output_path}` }],
+            content: [{ type: "text", text: `🎨 Image generated and saved to ${output_path}${session_id ? ' (Session: ' + session_id + ')' : ''}` }],
           };
         }
         throw new Error("No image data received");
