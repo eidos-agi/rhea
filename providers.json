@@ -20,5 +20,26 @@
   "draw": {
     "type": "cli",
     "cmd": ["gemini", "{prompt}", "--model", "gemini-3.1-flash-image-preview", "--output", "{output}"]
+  },
+  "dalle-3": {
+    "type": "image-api",
+    "api_type": "openai",
+    "base_url": "https://api.openai.com/v1",
+    "api_key_env": "OPENAI_API_KEY",
+    "upstream_model": "dall-e-3"
+  },
+  "sd3": {
+    "type": "image-api",
+    "api_type": "stability",
+    "base_url": "https://api.stability.ai/v2beta",
+    "api_key_env": "STABILITY_API_KEY",
+    "upstream_model": "sd3"
+  },
+  "flux-pro": {
+    "type": "image-api",
+    "api_type": "fal",
+    "base_url": "https://fal.run",
+    "api_key_env": "FAL_KEY",
+    "upstream_model": "flux-pro"
   }
 }

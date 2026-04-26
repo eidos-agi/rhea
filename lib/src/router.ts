@@ -14,7 +14,15 @@ export interface OpenAIProvider {
   headers?: Record<string, string>;
 }
 
-export type Provider = CliProvider | OpenAIProvider;
+export interface ImageApiProvider {
+  type: 'image-api';
+  api_type: 'openai' | 'stability' | 'fal';
+  base_url: string;
+  api_key_env: string;
+  upstream_model: string;
+}
+
+export type Provider = CliProvider | OpenAIProvider | ImageApiProvider;
 
 export interface Message {
   role: string;

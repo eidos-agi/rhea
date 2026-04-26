@@ -1,17 +1,14 @@
-<p align="center">
-  <img src="assets/rhea-banner.svg" alt="Rhea AI Banner" width="800">
-</p>
-
 # Rhea: Your AI Subscriptions, Now Your Private APIs
 
-Rhea is a high-performance orchestration suite that turns your existing, subscription-backed AI CLIs (Claude Pro, Gemini Advanced, Codex) into secure, remote, and always-on APIs. 
+Rhea is a high-performance orchestration suite that turns your existing, subscription-backed AI CLIs (Claude Pro, Gemini Advanced, Codex) and standard AI APIs (OpenAI, Stability, FAL.ai) into secure, remote, and always-on endpoints.
 
-Instead of paying for metered tokens every time you build a tool or run an agent, Rhea lets you securely "tunnel" into your authenticated local environments from any device, anywhere.
+Instead of paying for metered tokens every time you build a tool or run an agent, Rhea lets you securely "tunnel" into your authenticated local environments and subscriptions from any device, anywhere.
 
 ## 💎 Core Value Proposition
 
 - **Zero-Cost APIs**: Stop paying per-token. Rhea utilizes your existing flat-rate subscriptions to provide a robust API layer for your own software.
 - **Secure "Compute Tunneling"**: Run heavy or authenticated CLI tools on your powerful hardware (Mac, Cloud VM, Home Server) and query them remotely over an encrypted **Tailscale SSH** connection.
+- **Multi-Provider Image Support**: Use **DALL-E 3**, **Stable Diffusion 3**, or **Flux 2** alongside **Nano Banana 2** (Gemini Image) through a unified interface.
 - **Agent Orchestration (MCP)**: Expose your subscriptions as tools to any Model Context Protocol (MCP) client, giving agents direct access to your private model infrastructure.
 - **Resilient Reliability**: Define a fallback chain across multiple servers. If your primary node is asleep, Rhea automatically falls back to your secondary nodes or local execution.
 
@@ -20,17 +17,17 @@ Instead of paying for metered tokens every time you build a tool or run an agent
 ## 🌟 Key Features
 
 - **Intelligence Pods (Socratic Debate)**: Orchestrate high-fidelity reasoning using the Rhea Pod engine. Run three-model debates (Dreamer/Doubter/Decider) to solve complex problems with built-in skepticism and commitment logic.
-- **Multi-modal Support (Nano Banana)**: Generate and iteratively edit high-resolution images using the Gemini 3.1 Flash Image model series.
+- **Multi-modal Support**: Generate and iteratively edit images using the Gemini 3.1 Flash Image model series or cloud APIs.
 - **Real-time Streaming**: Full token-by-token streaming for instantaneous feedback in the terminal or via SSE.
 - **Smart Context Caching**: SHA-256 hashing saves you time and quota by instantly returning results for repeated prompts.
 - **Simplified Pairing**: Enroll new clients in seconds using 6-character short codes rather than complex keys.
-- **Least-Privilege Security**: Designed to run via forced SSH commands, ensuring remote clients only access the model interface and nothing else.
 
 ---
 
 ## 📂 Repository Structure
 
-- `lib/`: The shared engine for model routing, configuration, session persistence, and the Rhea Pod engine.
+- `lib/`: The shared engine for model routing, configuration, and session persistence.
+- `images/`: Dedicated high-performance image generation engine supporting multiple providers.
 - `cli/`: The `rhea-cli` client and `rhea-cli-server` daemon.
 - `mcp/`: The `rhea-mcp` server for MCP-compatible clients and agents.
 
@@ -71,7 +68,7 @@ rhea-cli pair my-mac user@mac-host --code B3F2A1
 
 **Ask a question (streams in real-time):**
 ```bash
-rhea-cli ask "Write a long essay on the history of AI"
+rhea-cli ask "Explain quantum entanglement"
 ```
 
 **Generate an image (Nano Banana):**
@@ -79,13 +76,14 @@ rhea-cli ask "Write a long essay on the history of AI"
 rhea-cli draw "A cyberpunk city" --output city.png --aspect-ratio 16:9 --size 2k
 ```
 
-**Iteratively edit an image:**
+**Use a Cloud Image API:**
 ```bash
-rhea-cli draw "Change the signs to bright green" --output city_v2.png --session <ID>
-```
+# OpenAI DALL-E 3
+rhea-cli draw --model dalle-3 "A majestic Rhea bird" --output bird.png
 
-**Run a Socratic Debate (Pod):**
-Access the `rhea_debate` tool via the integrated MCP server to orchestrate multiple models for complex reasoning tasks.
+# Stability AI SD3
+rhea-cli draw --model sd3 "A hyper-realistic landscape" --output forest.png --aspect-ratio 16:9
+```
 
 ---
 
@@ -104,7 +102,6 @@ Rhea is licensed under **Creative Commons Attribution-NonCommercial-ShareAlike 4
 - **Attribution**: You must give appropriate credit to Eidos AGI.
 - **Non-Commercial**: You may not use this software for commercial purposes.
 - **No Resale**: You specifically may not re-sell this software or any derivatives of it.
-- **ShareAlike**: Derivatives must be distributed under the same license.
 
 For commercial inquiries, please contact Eidos AGI.
 
