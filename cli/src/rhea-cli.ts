@@ -102,37 +102,52 @@ if (args.includes('--help')) {
 
 // ---- COMMAND: KEY ----
 if (command === 'key') {
-  const subCommand = args[1];
-  const keys = loadKeys();
+  (async () => {
+    const subCommand = args[1];
+    const keys = loadKeys();
 
-  if (subCommand === 'set') {
-    const name = args[2];
-    const value = args[3];
-    if (!name || !value) {
-      console.log("Usage: rhea-cli key set <NAME> <value>");
-      process.exit(1);
-    }
-    keys[name] = value;
-    saveKeys(keys);
-    console.log(`✅ Key '${name}' saved to secure keystore.`);
-  } else if (subCommand === 'list') {
-    console.log("Configured Keys:");
-    for (const name of Object.keys(keys)) {
-      console.log(`  - ${name}: ************`);
-    }
-  } else if (subCommand === 'remove') {
-    const name = args[2];
-    if (keys[name]) {
-      delete keys[name];
-      saveKeys(keys);
-      console.log(`✅ Key '${name}' removed.`);
+    if (subCommand === 'set') {
+      let name = args[2];
+      let value = args[3];
+
+      if (!name || !value) {
+        const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+        const ask = (q: string): Promise<string> => new Promise(res => rl.question(q, res));
+        
+        console.log("\n🔑 Add a Key to the Secure Keystore");
+        console.log("Common names: OPENROUTER_API_KEY, OPENAI_API_KEY, STABILITY_API_KEY, FAL_KEY\n");
+        
+        if (!name) name = await ask("Key Name: ");
+        if (!value) value = await ask("Key Value: ");
+        rl.close();
+      }
+
+      if (name && value) {
+        keys[name] = value;
+        saveKeys(keys);
+        console.log(`✅ Key '${name}' saved to secure keystore.`);
+      } else {
+        console.error("❌ Error: Both name and value are required.");
+      }
+    } else if (subCommand === 'list') {
+      console.log("Configured Keys:");
+      for (const name of Object.keys(keys)) {
+        console.log(`  - ${name}: ************`);
+      }
+    } else if (subCommand === 'remove') {
+      const name = args[2];
+      if (keys[name]) {
+        delete keys[name];
+        saveKeys(keys);
+        console.log(`✅ Key '${name}' removed.`);
+      } else {
+        console.error(`❌ Key '${name}' not found.`);
+      }
     } else {
-      console.error(`❌ Key '${name}' not found.`);
+      console.log("Usage: rhea-cli key [set|list|remove]");
     }
-  } else {
-    console.log("Usage: rhea-cli key [set|list|remove]");
-  }
-  process.exit(0);
+    process.exit(0);
+  })();
 }
 
 // ---- COMMAND: DOCTOR ----
@@ -201,11 +216,19 @@ if (command === 'setup') {
     console.log("\nStep 2: Cloud API Configuration");
     const keys = loadKeys();
     
-    const orKey = await ask("Enter your OpenRouter API Key (press enter to skip): ");
+    console.log("Rhea requires specific keys for cloud models. Press enter to skip a provider.\n");
+    
+    const orKey = await ask("OpenRouter API Key (for Llama 3, Flux Pro, etc.): ");
     if (orKey) keys['OPENROUTER_API_KEY'] = orKey;
     
-    const oaKey = await ask("Enter your OpenAI API Key (press enter to skip): ");
+    const oaKey = await ask("OpenAI API Key (for DALL-E 3, GPT-4o, etc.): ");
     if (oaKey) keys['OPENAI_API_KEY'] = oaKey;
+
+    const stKey = await ask("Stability AI API Key (for SD3): ");
+    if (stKey) keys['STABILITY_API_KEY'] = stKey;
+
+    const flKey = await ask("FAL.ai Key (for high-speed Flux): ");
+    if (flKey) keys['FAL_KEY'] = flKey;
     
     saveKeys(keys);
 
