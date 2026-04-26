@@ -21,23 +21,12 @@ The most powerful models in the world are already on your machine, hidden behind
 
 ---
 
-## 🛠️ Architecture
+## 🌟 Orchestration & Intelligence
 
-Rhea operates as a split client/server system, optimized for secure private networks.
+### The Rhea Pod (Socratic Debate)
+Rhea isn't just an orchestrator; it's a momentum engine. It implements our **Pod architecture**: a three-model Socratic debate loop (Dreamer/Doubter/Decider). 
 
-<p align="center">
-  <img src="assets/rhea-topology.png" alt="Rhea Topology" width="800">
-</p>
-
-- **Rhea Server**: Runs on your authenticated machine (e.g., your personal Mac). It manages the model CLIs and exposes a narrow JSON-RPC interface.
-- **Rhea Client**: Runs anywhere (VPS, Laptop, Mobile). It securely tunnels requests to the server over Tailscale SSH.
-
----
-
-## 🌟 Key Features
-
-### Intelligence Pods (Socratic Debate)
-Rhea implements our "Pod" architecture: a three-model Socratic debate engine (Dreamer/Doubter/Decider). This is more than just a loop; it is a mathematical necessity for escaping the logical "local minima" of single models. 
+This process forces "discontinuous jumps" in reasoning, breaking the local minima of individual models. Rhea turns the "information bottleneck" of language into a tool for escaping the limits of single-model gradient descent.
 
 <p align="center">
   <img src="assets/rhea-pod.png" alt="Rhea Pod Orchestration" width="800">
@@ -47,25 +36,47 @@ Rhea implements our "Pod" architecture: a three-model Socratic debate engine (Dr
 - **Doubter**: Adversarially critiques assumptions to find the "deepest flaw."
 - **Decider**: Weighs the collision and commits to a final, high-confidence decision.
 
-### Multi-modal Support (Nano Banana)
-Generate and iteratively edit high-resolution images using the Gemini 3.1 Flash Image model series or cloud APIs, all managed through your secure Rhea tunnel.
+---
+
+## 🛠️ Infrastructure & Transport
+
+Rhea operates as a split client/server system, optimized for secure private networks.
+
+<p align="center">
+  <img src="assets/rhea-topology.png" alt="Rhea Topology" width="800">
+</p>
+
+- **Rhea Server**: Runs on your authenticated hardware (e.g., your personal Mac). It manages model CLIs and exposes a narrow JSON-RPC interface.
+- **Rhea Client**: Runs anywhere (VPS, Laptop, Mobile). It securely tunnels requests to the server over **Tailscale SSH**.
+- **Resilient Fallback**: Define a server order in `~/rhea/client.json`. If your primary node is asleep, Rhea automatically cycles through your mesh or falls back to local execution.
 
 ---
 
 ## 🚀 Getting Started
 
 ### 1. Installation
-
 ```bash
 npm install
 npm run build
 cd cli && npm link
 ```
 
-### 2. Quick Setup
-Use our interactive wizard to link your providers and pair your first server:
+### 2. Fast Onboarding
+Use our interactive wizard to link your providers and pair your mesh:
 ```bash
 rhea-cli setup
+```
+
+### 3. Usage
+```bash
+# Ask a question (streams in real-time)
+rhea-cli ask "Explain quantum entanglement"
+
+# Run a Socratic Pod debate
+rhea-cli debate "How should we regulate AGI development?"
+
+# Generate high-fidelity images (Nano Banana 3)
+rhea-cli draw "A minimalist representation of momentum" --output logo.png --aspect-ratio 16:9
 ```
 
 ---
