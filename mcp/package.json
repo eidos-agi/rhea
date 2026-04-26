@@ -1,0 +1,13 @@
+{
+  "name": "@rhea/mcp",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.6.1",
+    "@rhea/lib": "*"
+  }
+}

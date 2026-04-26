@@ -1,0 +1,15 @@
+{
+  "name": "@rhea/cli",
+  "version": "1.0.0",
+  "type": "module",
+  "bin": {
+    "rhea-cli": "./dist/rhea-cli.js",
+    "rhea-cli-server": "./dist/rhea-cli-server.js"
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@rhea/lib": "*"
+  }
+}

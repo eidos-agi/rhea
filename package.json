@@ -1,0 +1,23 @@
+{
+  "name": "rhea",
+  "version": "1.0.0",
+  "description": "Rhea: Secure Remote AI Model Routing Suite",
+  "type": "module",
+  "private": true,
+  "workspaces": [
+    "lib",
+    "cli",
+    "mcp"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "dev": "npm run dev --workspaces"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0"
+  }
+}

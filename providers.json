@@ -1,0 +1,20 @@
+{
+  "claude-pro": {
+    "type": "cli",
+    "cmd": ["claude", "-p", "{prompt}"]
+  },
+  "gemini-advanced": {
+    "type": "cli",
+    "cmd": ["gemini", "-p", "{prompt}"]
+  },
+  "codex-local": {
+    "type": "cli",
+    "cmd": ["codex", "-p", "{prompt}"]
+  },
+  "openrouter:auto": {
+    "type": "openai",
+    "base_url": "https://openrouter.ai/api/v1",
+    "api_key_env": "OPENROUTER_API_KEY",
+    "upstream_model": "openrouter/auto"
+  }
+}

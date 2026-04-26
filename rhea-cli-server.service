@@ -1,0 +1,17 @@
+[Unit]
+Description=Rhea AI Model Router Server
+After=network.target tailscaled.service
+
+[Service]
+Type=simple
+User=YOUR_USER
+WorkingDirectory=/path/to/rhea-cli
+# Set environment variables for API-key based providers
+Environment="OPENROUTER_API_KEY=sk-or-v1-..."
+# Ensure CLI binaries are in the PATH
+Environment="PATH=/usr/local/bin:/usr/bin:/bin:/home/YOUR_USER/.local/bin"
+ExecStart=/usr/bin/node rhea-cli-server.js daemon 8787
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
