@@ -1,20 +1,32 @@
-# Rhea: Secure Remote AI Model Router
+# Rhea: Your AI Subscriptions, Now Your Private APIs
 
-Rhea is a comprehensive suite for multiplexing AI model execution across subscription-backed CLIs (Claude, Gemini) and Cloud APIs (OpenRouter, NIM). It uses **Tailscale SSH** and **Model Context Protocol (MCP)** to provide secure, always-on access to your favorite models from any device.
+Rhea is a high-performance orchestration suite that turns your existing, subscription-backed AI CLIs (Claude Pro, Gemini Advanced, Codex) into secure, remote, and always-on APIs. 
+
+Instead of paying for metered tokens every time you build a tool or run an agent, Rhea lets you securely "tunnel" into your authenticated local environments from any device, anywhere.
+
+## 💎 Core Value Proposition
+
+- **Zero-Cost APIs**: Stop paying per-token. Rhea utilizes your existing flat-rate subscriptions to provide a robust API layer for your own software.
+- **Secure "Compute Tunneling"**: Run heavy or authenticated CLI tools on your powerful hardware (Mac, Cloud VM, Home Server) and query them remotely over an encrypted **Tailscale SSH** connection.
+- **Agent Orchestration (MCP)**: Expose your subscriptions as tools to any Model Context Protocol (MCP) client, giving agents direct access to your private model infrastructure.
+- **Resilient Reliability**: Define a fallback chain across multiple servers. If your primary node is asleep, Rhea automatically falls back to your secondary nodes or local execution.
+
+---
 
 ## 🌟 Key Features
 
-- **Split Architecture**: Run heavy CLI tools on a central machine (e.g., a Mac or Cloud VM) and access them remotely via lightweight clients.
-- **Tailscale SSH Integration**: Secure, private transport between clients and servers without complex key management.
-- **MCP Server**: Integrated Model Context Protocol server exposing Rhea tools to intelligent agents and IDEs.
-- **Server Ordering & Fallback**: Configure a prioritized list of servers; Rhea will automatically fall back to the next available server (or local execution) if a primary server is offline.
-- **OpenAI-Compatible Facade**: Exposes a local OpenAI-compatible API for seamless integration with existing tools.
+- **Real-time Streaming**: Full token-by-token streaming for instantaneous feedback in the terminal or via SSE.
+- **Smart Context Caching**: SHA-256 hashing saves you time and quota by instantly returning results for repeated prompts.
+- **Simplified Pairing**: Enroll new clients in seconds using 6-character short codes rather than complex keys.
+- **Least-Privilege Security**: Designed to run via forced SSH commands, ensuring remote clients only access the model interface and nothing else.
+
+---
 
 ## 📂 Repository Structure
 
-- `lib/`: Shared logic for configuration management, SSH RPC, and model routing.
+- `lib/`: The shared engine for model routing, configuration, and SSH RPC.
 - `cli/`: The `rhea-cli` client and `rhea-cli-server` daemon.
-- `mcp/`: The `rhea-mcp` server for MCP-compatible clients.
+- `mcp/`: The `rhea-mcp` server for MCP-compatible clients and agents.
 
 ---
 
@@ -34,103 +46,47 @@ cd cli
 npm link
 ```
 
-### 2. Server Setup (e.g., on your Mac)
+### 2. Server Setup (e.g., on your Mac or Cloud VM)
 
-Create a pairing token for your clients:
+Ensure you are authenticated in your chosen model CLIs (e.g., `claude login`), then generate a pairing code:
 ```bash
-rhea-cli-server pair create "My-VPS"
-# ✅ Pairing token created!
-# Run: rhea-cli pair my-mac user@mac-host --token rhea_...
+rhea-cli-server pair code "My-VPS"
+# 🎫 Pairing Code: B3F2A1
 ```
 
 ### 3. Client Pairing
 
-Pair your remote client to the server:
+Pair your remote client using the generated code:
 ```bash
-rhea-cli pair my-mac user@mac-host --token rhea_...
-```
-
-Verify the connection:
-```bash
-rhea-cli status
-# Server:      my-mac
-# Reachability: Online
+rhea-cli pair my-mac user@mac-host --code B3F2A1
 ```
 
 ### 4. Usage
 
-**Ask a question:**
+**Ask a question (streams in real-time):**
 ```bash
-rhea-cli ask "Explain quantum entanglement"
+rhea-cli ask "Write a long essay on the history of AI"
 ```
 
-**List available models:**
-```bash
-rhea-cli list
-```
-
-**Managing Server Identities:**
-List all paired servers and see which one is active:
-```bash
-rhea-cli servers
-```
-
-Switch your active server:
-```bash
-rhea-cli use vps-cloud
-# ✅ Now using server: vps-cloud
-```
-
-Set a persistent fallback order:
+**Managing Server Fallback:**
+Set your preferred fallback sequence:
 ```bash
 rhea-cli order primary-vps home-server mac-laptop
-# ✅ Server fallback order updated!
-```
-
-Target a specific server for a one-off command (bypasses active server):
-```bash
-rhea-cli ask --server mac-laptop "Explain this code"
-```
-
-**MCP Integration:**
-Configure your MCP client (like Claude Desktop) to run the server:
-```json
-{
-  "mcpServers": {
-    "rhea": {
-      "command": "node",
-      "args": ["/path/to/rhea/mcp/dist/index.js"]
-    }
-  }
-}
 ```
 
 ---
 
-## 🛡️ Security & Privacy
-
-Rhea is designed for **Least Privilege**. You can restrict your server's `authorized_keys` to ensure clients can only execute the RPC interface:
+## 🛡️ Security Note
+All traffic is encrypted via **Tailscale/WireGuard**. For maximum security, restrict your server's `authorized_keys`:
 ```text
 command="rhea-cli-server rpc",no-pty,no-port-forwarding ssh-ed25519 ...
 ```
-
-All traffic is encrypted via **Tailscale/WireGuard**, keeping your model interactions private and secure.
 
 ---
 
 ## 🛠️ Configuration
 
 Rhea stores configuration in:
-- `~/.rhea-cli.json` (Client profiles and ordering)
+- `~/.rhea-cli.json` (Profiles and ordering)
 - `~/.rhea-cli-server.json` (Server-side pairing tokens)
-
-### Server Ordering
-In `~/.rhea-cli.json`, you can define a fallback order:
-```json
-{
-  "activeServer": "primary-vps",
-  "order": ["primary-vps", "home-server", "mac-laptop"],
-  "servers": { ... }
-}
-```
-If `primary-vps` is offline, Rhea will automatically try `home-server`, then `mac-laptop`, before falling back to local execution.
+- `~/.rhea-cache/` (Local result cache)
