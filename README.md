@@ -1,8 +1,16 @@
+<p align="center">
+  <img src="assets/rhea-banner.svg" alt="Rhea AI Banner" width="800">
+</p>
+
 # Rhea: Your AI Subscriptions, Now Your Private APIs
 
-Rhea is a high-performance orchestration suite that turns your existing, subscription-backed AI CLIs (Claude Pro, Gemini Advanced, Codex) and standard AI APIs (OpenAI, Stability, FAL.ai) into secure, remote, and always-on endpoints.
+Rhea is a high-performance orchestration suite that turns your existing, subscription-backed AI CLIs (Claude Pro, Gemini Advanced, Codex) into secure, remote, and always-on APIs. 
 
 Instead of paying for metered tokens every time you build a tool or run an agent, Rhea lets you securely "tunnel" into your authenticated local environments and subscriptions from any device, anywhere.
+
+<p align="center">
+  <img src="assets/rhea-savings.svg" alt="Rhea Savings Model" width="800">
+</p>
 
 ## 💎 Core Value Proposition
 
@@ -14,13 +22,38 @@ Instead of paying for metered tokens every time you build a tool or run an agent
 
 ---
 
+## 🛠️ Architecture
+
+Rhea operates as a split client/server system, optimized for secure private networks.
+
+<p align="center">
+  <img src="assets/rhea-topology.svg" alt="Rhea Topology" width="800">
+</p>
+
+- **Rhea Server**: Runs on your authenticated machine (e.g., your personal Mac). It manages the model CLIs and exposes a narrow JSON-RPC interface.
+- **Rhea Client**: Runs anywhere (VPS, Laptop, Mobile). It securely tunnels requests to the server over Tailscale SSH.
+
+---
+
 ## 🌟 Key Features
 
-- **Intelligence Pods (Socratic Debate)**: Orchestrate high-fidelity reasoning using the Rhea Pod engine. Run three-model debates (Dreamer/Doubter/Decider) to solve complex problems with built-in skepticism and commitment logic.
-- **Multi-modal Support**: Generate and iteratively edit images using the Gemini 3.1 Flash Image model series or cloud APIs.
-- **Real-time Streaming**: Full token-by-token streaming for instantaneous feedback in the terminal or via SSE.
-- **Smart Context Caching**: SHA-256 hashing saves you time and quota by instantly returning results for repeated prompts.
-- **Simplified Pairing**: Enroll new clients in seconds using 6-character short codes rather than complex keys.
+### Intelligence Pods (Socratic Debate)
+Orchestrate high-fidelity reasoning using the Rhea Pod engine. Run three-model debates (Dreamer/Doubter/Decider) to solve complex problems with built-in skepticism and commitment logic.
+
+<p align="center">
+  <img src="assets/rhea-pod.svg" alt="Rhea Pod Orchestration" width="800">
+</p>
+
+- **Dreamer**: Expands the solution space with creative proposals.
+- **Doubter**: Adversarially critiques assumptions and finds edge cases.
+- **Decider**: Weighs the debate and commits to a final, structured decision.
+
+### Multi-modal Support
+Generate and iteratively edit images using the Gemini 3.1 Flash Image (Nano Banana) model series or cloud APIs.
+
+### Real-time Streaming & Caching
+- **Streaming**: Full token-by-token streaming for instantaneous feedback.
+- **Caching**: SHA-256 hashing saves you time and quota by instantly returning results for repeated prompts.
 
 ---
 
@@ -74,15 +107,6 @@ rhea-cli ask "Explain quantum entanglement"
 **Generate an image (Nano Banana):**
 ```bash
 rhea-cli draw "A cyberpunk city" --output city.png --aspect-ratio 16:9 --size 2k
-```
-
-**Use a Cloud Image API:**
-```bash
-# OpenAI DALL-E 3
-rhea-cli draw --model dalle-3 "A majestic Rhea bird" --output bird.png
-
-# Stability AI SD3
-rhea-cli draw --model sd3 "A hyper-realistic landscape" --output forest.png --aspect-ratio 16:9
 ```
 
 ---
