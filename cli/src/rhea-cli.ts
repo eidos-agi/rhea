@@ -3,7 +3,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { spawn, execSync } from 'child_process';
+import { execSync } from 'child_process';
 import readline from 'readline';
 import providers from '../../providers.json' with { type: 'json' };
 import { 
@@ -22,7 +22,8 @@ import {
   loadSession,
   loadKeys,
   saveKeys,
-  injectEnvKeys
+  injectEnvKeys,
+  Pod
 } from '@rhea/lib';
 import { generateImage } from '@rhea/images';
 
@@ -60,6 +61,7 @@ Commands:
   use         Switch the active server profile
   order       Set a persistent fallback order for servers
   status      Check connectivity to a server
+  debate      Run a multi-model Socratic debate (Intelligence Pod)
   list        List available models (local or remote)
   cache       Manage the local prompt cache
   key         Manage API keys in the secure keystore
@@ -84,6 +86,7 @@ Draw Flags:
 
 Examples:
   rhea-cli ask "Explain quantum entanglement"
+  rhea-cli debate "Should we build a Dyson sphere?"
   rhea-cli draw "A cyberpunk city" --output city.png --new-session --aspect-ratio 16:9
   rhea-cli order primary-vps home-server mac-laptop
   rhea-cli pair my-mac user@mac-host --code B3F2A1
@@ -116,12 +119,11 @@ if (command === 'key') {
         
         console.log("\n🔑 Add an API Key to Rhea");
 
-        // Group by unique API Key Environment variable names
-        const envKeys = new Set<string>();
+        const envKeysSet = new Set<string>();
         Object.values(providers as Record<string, any>).forEach(p => {
-          if (p.api_key_env) envKeys.add(p.api_key_env);
+          if (p.api_key_env) envKeysSet.add(p.api_key_env);
         });
-        const sortedEnvKeys = Array.from(envKeys).sort();
+        const sortedEnvKeys = Array.from(envKeysSet).sort();
 
         if (!name) {
           console.log("Please select which provider key you want to set:");
@@ -179,11 +181,10 @@ if (command === 'key') {
 }
 
 // ---- COMMAND: DOCTOR ----
-if (command === 'doctor') {
+else if (command === 'doctor') {
   (async () => {
     console.log("🩺 Rhea Diagnostic Report\n");
 
-    // 1. Check binaries
     const binaries = ['claude', 'gemini', 'ssh'];
     for (const bin of binaries) {
       try {
@@ -194,7 +195,6 @@ if (command === 'doctor') {
       }
     }
 
-    // 2. Check keys
     const keys = loadKeys();
     const requiredKeys = ['OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'STABILITY_API_KEY', 'FAL_KEY'];
     console.log("\nSecrets:");
@@ -203,7 +203,6 @@ if (command === 'doctor') {
       else console.log(`⚪ ${key.padEnd(20)} : Not set`);
     }
 
-    // 3. Check servers
     console.log("\nServers:");
     for (const [name, server] of Object.entries(config.servers)) {
       try {
@@ -220,61 +219,45 @@ if (command === 'doctor') {
   })();
 }
 
-// ---- COMMAND: SETUP (INTERACTIVE) ----
-if (command === 'setup') {
+// ---- COMMAND: SETUP ----
+else if (command === 'setup') {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   const ask = (q: string): Promise<string> => new Promise(res => rl.question(q, res));
 
   (async () => {
     console.log("\n🚀 Welcome to the Rhea Setup Wizard\n");
 
-    // 1. CLI Authentication
     console.log("Step 1: Local CLI Authentication");
     const useClaude = (await ask("Do you want to use Claude Pro? (y/n): ")).toLowerCase() === 'y';
-    if (useClaude) {
-      console.log("Please ensure you have run 'claude login' in your terminal.");
-    }
+    if (useClaude) console.log("Please ensure you have run 'claude login' in your terminal.");
     
-    const useGemini = (await ask("Do you want to use Gemini Advanced / Image Generation? (y/n): ")).toLowerCase() === 'y';
-    if (useGemini) {
-      console.log("Please ensure you have run 'gemini login' or configured your credentials.");
-    }
+    const useGemini = (await ask("Do you want to use Gemini Advanced? (y/n): ")).toLowerCase() === 'y';
+    if (useGemini) console.log("Please ensure you have run 'gemini login'.");
 
-    // 2. API Keys
     console.log("\nStep 2: Cloud API Configuration");
     const keys = loadKeys();
     
-    console.log("Rhea requires specific keys for cloud models. Press enter to skip a provider.\n");
-    
-    const orKey = await ask("OpenRouter API Key (for Llama 3, Flux Pro, etc.): ");
+    const orKey = await ask("OpenRouter API Key (press enter to skip): ");
     if (orKey) keys['OPENROUTER_API_KEY'] = orKey;
     
-    const oaKey = await ask("OpenAI API Key (for DALL-E 3, GPT-4o, etc.): ");
+    const oaKey = await ask("OpenAI API Key (press enter to skip): ");
     if (oaKey) keys['OPENAI_API_KEY'] = oaKey;
-
-    const stKey = await ask("Stability AI API Key (for SD3): ");
-    if (stKey) keys['STABILITY_API_KEY'] = stKey;
-
-    const flKey = await ask("FAL.ai Key (for high-speed Flux): ");
-    if (flKey) keys['FAL_KEY'] = flKey;
     
     saveKeys(keys);
 
-    // 3. Initial Server
     console.log("\nStep 3: Remote Server Pairing");
-    const pairNow = (await ask("Do you want to pair with a remote server now? (y/n): ")).toLowerCase() === 'y';
+    const pairNow = (await ask("Do you want to pair with a remote server? (y/n): ")).toLowerCase() === 'y';
     if (pairNow) {
-      const label = await ask("Enter server label (e.g. mac): ");
-      const host = await ask("Enter server host (e.g. user@mac-host): ");
-      const code = await ask("Enter 6-char pairing code from the server: ");
+      const label = await ask("Enter server label: ");
+      const host = await ask("Enter server host (user@host): ");
+      const code = await ask("Enter pairing code: ");
       
       console.log(`Pairing with ${label}...`);
       try {
         const tempServer = { host, token: "" };
         const generator = rpc(tempServer, 'exchange-code', { code });
-        let result;
+        let result: any;
         for await (const chunk of generator) { result = chunk; }
-        
         config.servers[label] = { host, token: result.token };
         config.activeServer = label;
         saveClientConfig(config);
@@ -284,14 +267,14 @@ if (command === 'setup') {
       }
     }
 
-    console.log("\n✨ Setup complete! Try running 'rhea-cli doctor' to verify your environment.");
+    console.log("\n✨ Setup complete! Run 'rhea-cli doctor' to verify.");
     rl.close();
     process.exit(0);
   })();
 }
 
 // ---- COMMAND: PAIR ----
-if (command === 'pair' && !['setup'].includes(command)) { // Handled separately or as standalone
+else if (command === 'pair') {
   const label = args[1];
   const host = args[2];
   const tokenIndex = args.indexOf('--token');
@@ -301,23 +284,18 @@ if (command === 'pair' && !['setup'].includes(command)) { // Handled separately 
   const code = codeIndex > -1 ? args[codeIndex + 1] : null;
 
   if (!label || !host || (!token && !code)) {
-    console.log("Usage: \n  rhea-cli pair <label> <user@host> --token <token>\n  rhea-cli pair <label> <user@host> --code <code>");
+    console.log("Usage: \n  rhea-cli pair <label> <host> --token <token>\n  rhea-cli pair <label> <host> --code <code>");
     process.exit(1);
   }
 
   (async () => {
     if (code) {
-      console.log(`Exchanging code ${code} for token...`);
-      // Manual SSH RPC for exchange (bypasses getActiveServer)
       try {
-        const tempServer: ServerProfile = { host, token: '' }; // No token yet
+        const tempServer = { host, token: '' };
         const generator = rpc(tempServer, 'exchange-code', { code });
-        let result;
-        for await (const chunk of generator) {
-          result = chunk;
-        }
+        let result: any;
+        for await (const chunk of generator) { result = chunk; }
         token = result.token;
-        console.log("✅ Code exchanged successfully.");
       } catch (err: any) {
         console.error(`❌ Failed to exchange code: ${err.message}`);
         process.exit(1);
@@ -328,20 +306,14 @@ if (command === 'pair' && !['setup'].includes(command)) { // Handled separately 
       config.servers[label] = { host, token };
       if (!config.activeServer) config.activeServer = label;
       saveClientConfig(config);
-
       console.log(`✅ Server profile '${label}' paired and saved.`);
-      console.log(`To use this server: rhea-cli use ${label}`);
     }
     process.exit(0);
   })();
 }
 
 // ---- COMMAND: SERVERS ----
-if (command === 'servers') {
-  console.log("Configured Rhea Servers:");
-  if (Object.keys(config.servers).length === 0) {
-    console.log("  (No servers paired)");
-  }
+else if (command === 'servers') {
   for (const name of Object.keys(config.servers)) {
     const activeMark = name === config.activeServer ? "*" : " ";
     console.log(`${activeMark} ${name} (${config.servers[name].host})`);
@@ -350,7 +322,7 @@ if (command === 'servers') {
 }
 
 // ---- COMMAND: USE ----
-if (command === 'use') {
+else if (command === 'use') {
   const label = args[1];
   if (!config.servers[label]) {
     console.error(`❌ Error: Server profile '${label}' does not exist.`);
@@ -363,81 +335,53 @@ if (command === 'use') {
 }
 
 // ---- COMMAND: ORDER ----
-if (command === 'order') {
+else if (command === 'order') {
   const order = args.slice(1).filter(a => !a.startsWith('-'));
-  if (order.length === 0) {
-    console.log("Usage: rhea-cli order <server1> <server2> ...");
-    process.exit(1);
-  }
-  
-  // Validate all servers exist
   for (const name of order) {
     if (!config.servers[name]) {
       console.error(`❌ Error: Server profile '${name}' not found.`);
       process.exit(1);
     }
   }
-  
   config.order = order;
   saveClientConfig(config);
-  console.log(`✅ Server fallback order updated: ${order.join(' -> ')}`);
+  console.log(`✅ Server fallback order updated.`);
   process.exit(0);
 }
 
 // ---- COMMAND: STATUS ----
-if (command === 'status') {
+else if (command === 'status') {
   const label = getActiveServerLabel();
   const server = label ? config.servers[label] : null;
-
   if (!server) {
     console.log("Status: Not paired");
-    console.log("Hint: run 'rhea-cli pair ...'");
     process.exit(0);
   }
-
-  console.log(`Server:      ${label}`);
-  console.log(`Host:        ${server.host}`);
-  console.log(`Transport:   SSH over Tailscale`);
-  
   (async () => {
     try {
       const generator = rpc(server, 'ping');
-      let result;
-      for await (const chunk of generator) {
-        result = chunk;
-      }
-      console.log(`Reachability: Online`);
-      console.log(`Pairing:      Valid`);
-      console.log(`Version:      ${result.version}`);
+      let result: any;
+      for await (const chunk of generator) { result = chunk; }
+      console.log(`Server: ${label}\nReachability: Online\nVersion: ${result.version}`);
     } catch (err: any) {
-      if (err.message.includes("Server offline")) {
-        console.log(`Reachability: Offline`);
-        console.log(`Hint: Server may be asleep or disconnected from Tailscale.`);
-      } else if (err.message.includes("Unauthorized")) {
-        console.log(`Reachability: Online`);
-        console.log(`Pairing:      Invalid / Revoked`);
-      } else {
-        console.log(`Reachability: Error - ${err.message}`);
-      }
+      console.log(`Server: ${label}\nReachability: Offline (${err.message})`);
     }
+    process.exit(0);
   })();
 }
 
 // ---- COMMAND: CACHE ----
-if (command === 'cache' && args[1] === 'clear') {
+else if (command === 'cache' && args[1] === 'clear') {
   clearCache();
   console.log("✅ Cache cleared.");
   process.exit(0);
 }
 
 // ---- COMMAND: ASK ----
-if (command === 'ask') {
+else if (command === 'ask') {
   const modelIndex = args.indexOf('--model');
   const model = modelIndex > -1 ? args[modelIndex + 1] : 'claude-pro';
-  
-  const serverFlagIndex = args.indexOf('--server');
   const noCache = args.includes('--no-cache');
-  
   const sessionIndex = args.indexOf('--session');
   const newSession = args.includes('--new-session');
   let sessionId = sessionIndex > -1 ? args[sessionIndex + 1] : (newSession ? generateSessionId() : null);
@@ -445,25 +389,17 @@ if (command === 'ask') {
   let promptArgs = args.filter((arg, i) => {
     if (i === 0) return false;
     if (i === modelIndex || i === modelIndex + 1) return false;
-    if (i === serverFlagIndex || i === serverFlagIndex + 1) return false;
+    if (arg === '--server' || (i > 0 && args[i-1] === '--server')) return false;
     if (i === sessionIndex || i === sessionIndex + 1) return false;
     if (arg === '--no-cache' || arg === '--new-session') return false;
     return true;
   });
-  
   let prompt = promptArgs.join(' ');
-
-  if (!prompt && !process.stdin.isTTY) {
-    let stdinData = '';
-    process.stdin.on('data', (chunk: Buffer) => stdinData += chunk);
-    process.stdin.on('end', () => runQuery(model, stdinData.trim(), { noCache, sessionId }));
-  } else {
-    runQuery(model, prompt, { noCache, sessionId });
-  }
+  runQuery(model, prompt, { noCache, sessionId });
 }
 
 // ---- COMMAND: DRAW ----
-if (command === 'draw') {
+else if (command === 'draw') {
   const outputIndex = args.indexOf('--output');
   const output = outputIndex > -1 ? args[outputIndex + 1] : null;
   const modelIndex = args.indexOf('--model');
@@ -472,9 +408,6 @@ if (command === 'draw') {
   const aspectRatio = ratioIndex > -1 ? args[ratioIndex + 1] : undefined;
   const sizeIndex = args.indexOf('--size');
   const size = sizeIndex > -1 ? args[sizeIndex + 1] : undefined;
-  
-  const serverFlagLabel = getActiveServerLabel();
-
   const sessionIndex = args.indexOf('--session');
   const newSession = args.includes('--new-session');
   let sessionId = sessionIndex > -1 ? args[sessionIndex + 1] : (newSession ? generateSessionId() : null);
@@ -493,25 +426,16 @@ if (command === 'draw') {
   const prompt = promptArgs.join(' ');
 
   if (!prompt || !output) {
-    console.error("❌ Error: Prompt and --output path are required for 'draw'.");
+    console.error("❌ Error: Prompt and --output path are required.");
     process.exit(1);
   }
 
   (async () => {
     try {
-      if (sessionId && newSession) console.log(`🆕 Starting new session: ${sessionId}`);
-      else if (sessionId) console.log(`💬 Using session: ${sessionId}`);
-
+      const serverFlagLabel = getActiveServerLabel();
       const server = serverFlagLabel ? config.servers[serverFlagLabel] : null;
-      let response;
-
-      const drawOpts = { 
-        modelReq: model, 
-        prompt, 
-        sessionId: sessionId || undefined,
-        aspectRatio,
-        size
-      };
+      let response: any;
+      const drawOpts = { modelReq: model, prompt, sessionId: sessionId || undefined, aspectRatio, size };
 
       if (server) {
         const generator = rpc(server, 'draw', drawOpts);
@@ -523,10 +447,10 @@ if (command === 'draw') {
       if (response.data?.[0]?.b64_json) {
         fs.writeFileSync(output, Buffer.from(response.data[0].b64_json, 'base64'));
         console.log(`🎨 Image saved to: ${output}`);
-        if (sessionId) console.log(`🔗 Session ID: ${sessionId} (use with --session to edit)`);
       } else {
-        throw new Error("No image data received from server");
+        throw new Error("No image data received");
       }
+      process.exit(0);
     } catch (err: any) {
       console.error(`❌ Draw failed: ${err.message}`);
       process.exit(1);
@@ -535,46 +459,24 @@ if (command === 'draw') {
 }
 
 // ---- COMMAND: DEBATE ----
-if (command === 'debate') {
+else if (command === 'debate') {
   const modelArgsIndex = args.indexOf('--models');
   const models = modelArgsIndex > -1 ? args[modelArgsIndex + 1].split(',') : undefined;
-  
-  const serverFlagIndex = args.indexOf('--server');
-  
   let promptArgs = args.filter((arg, i) => {
     if (i === 0) return false;
     if (i === modelArgsIndex || i === modelArgsIndex + 1) return false;
-    if (i === serverFlagIndex || i === serverFlagIndex + 1) return false;
+    if (arg === '--server' || (i > 0 && args[i-1] === '--server')) return false;
     return true;
   });
-  
   const question = promptArgs.join(' ');
-  if (!question) {
-    console.error("❌ Error: A question is required for a debate.");
-    process.exit(1);
-  }
 
   (async () => {
-    const { Pod } = await import('@rhea/lib');
     const availableModels = Object.keys(providers).filter(m => m !== 'draw');
-    const podModels = models || availableModels.slice(0, 3);
-    
-    console.log(`🧠 Starting Rhea Pod debate with: ${podModels.join(', ')}\n`);
-    const pod = new Pod(podModels, config);
-    
+    const pod = new Pod(models || availableModels.slice(0, 3), config);
     try {
       const result = await pod.debate(question);
-      
-      result.rounds.forEach(r => {
-        console.log(`\n--- ROUND ${r.round} ---`);
-        console.log(`💎 DREAMER:  ${r.proposal.slice(0, 200)}...`);
-        console.log(`🤔 DOUBTER:  ${r.critique.slice(0, 200)}...`);
-        console.log(`⚖️ DECIDER:  ${r.decision.answer}`);
-        console.log(`🎯 Confident: ${r.decision.confident ? '✅' : '❌'}`);
-      });
-
       console.log(`\n🏆 FINAL DECISION:\n${result.decision}`);
-      console.log(`\n📊 Confidence: ${result.confidence}`);
+      process.exit(0);
     } catch (err: any) {
       console.error(`❌ Debate failed: ${err.message}`);
       process.exit(1);
@@ -582,79 +484,50 @@ if (command === 'debate') {
   })();
 }
 
-// ---- COMMAND: UNPAIR ----
-if (command === 'unpair') {
-  const label = args[1];
-  if (!label) {
-    console.log("Usage: rhea-cli unpair <label>");
-    process.exit(1);
+// ---- COMMAND: LIST ----
+else if (command === 'list') {
+  const showImages = args.includes('--images');
+  const label = getActiveServerLabel();
+  const server = label ? config.servers[label] : null;
+  if (showImages) {
+    (async () => {
+      const res = await fetch("https://openrouter.ai/api/v1/models?output_modalities=image");
+      const data = await res.json() as any;
+      data.data.forEach((m: any) => console.log(`  - ${m.id}`));
+      process.exit(0);
+    })();
+  } else if (server) {
+    (async () => {
+      const generator = rpc(server, 'list');
+      let result: any;
+      for await (const chunk of generator) { result = chunk; }
+      result.models.forEach((m: string) => console.log(`  - ${m}`));
+      process.exit(0);
+    })();
+  } else {
+    Object.keys(providers).forEach(m => console.log(`  - ${m}`));
+    process.exit(0);
   }
+}
+
+else if (command === 'unpair') {
+  const label = args[1];
   if (config.servers[label]) {
     delete config.servers[label];
-    if (config.activeServer === label) {
-      config.activeServer = Object.keys(config.servers)[0] || null;
-    }
     saveClientConfig(config);
     console.log(`🔌 Unpaired server '${label}'.`);
-  } else {
-    console.error(`❌ Error: Server profile '${label}' not found.`);
   }
   process.exit(0);
 }
 
-// ---- COMMAND: LIST ----
-if (command === 'list') {
-  const showImages = args.includes('--images');
-  const label = getActiveServerLabel();
-  const server = label ? config.servers[label] : null;
-  
-  if (showImages) {
-    const apiKey = process.env.OPENROUTER_API_KEY;
-    if (!apiKey) {
-      console.error("❌ Error: OPENROUTER_API_KEY is required to discovery remote image models.");
-      process.exit(1);
-    }
-    (async () => {
-      try {
-        console.log("Fetching live image models from OpenRouter...");
-        const res = await fetch("https://openrouter.ai/api/v1/models?output_modalities=image");
-        const data = await res.json() as any;
-        console.log("Available OpenRouter Image Models:");
-        data.data.forEach((m: any) => console.log(`  - ${m.id} (${m.name})`));
-      } catch (err: any) {
-        console.error(`❌ Discovery failed: ${err.message}`);
-      }
-    })();
-  } else if (server) {
-    (async () => {
-      try {
-        const generator = rpc(server, 'list');
-        let result;
-        for await (const chunk of generator) {
-          result = chunk;
-        }
-        console.log(`Models available on ${label} (${server.host}):`);
-        result.models.forEach((m: string) => console.log(`  - ${m}`));
-      } catch (err: any) {
-        console.error(err.message);
-      }
-    })();
-  } else {
-    console.log("Available local models:");
-    const providersObj = providers as Record<string, any>;
-    Object.keys(providersObj).forEach(m => console.log(`  - ${m}`));
-  }
-} else if (!['pair', 'status', 'ask', 'list', 'unpair', 'servers', 'use', 'order', 'cache', 'draw', 'key', 'doctor', 'setup'].includes(command as string)) {
+// Default Help
+else {
   showHelp();
 }
 
 async function runQuery(model: string, prompt: string, opts: { noCache?: boolean, sessionId?: string | null } = {}) {
   const history = opts.sessionId ? loadSession(opts.sessionId) : [];
   const messages = [...history, { role: 'user', content: prompt }];
-  
-  if (opts.sessionId && !history.length) console.log(`🆕 Starting new session: ${opts.sessionId}`);
-  else if (opts.sessionId) console.log(`💬 Resuming session: ${opts.sessionId}`);
-
   const cacheKey = getCacheKey(model, messages);
   
   if (!opts.noCache) {
@@ -666,9 +539,7 @@ async function runQuery(model: string, prompt: string, opts: { noCache?: boolean
     }
   }
 
-  const labelOverride = getActiveServerLabel();
   let finalContent = '';
-  
   const handleChunk = (chunk: any) => {
     if (chunk.choices?.[0]?.delta?.content) {
       const c = chunk.choices[0].delta.content;
@@ -681,6 +552,7 @@ async function runQuery(model: string, prompt: string, opts: { noCache?: boolean
     }
   };
 
+  const labelOverride = getActiveServerLabel();
   if (labelOverride && config.servers[labelOverride]) {
     try {
       const generator = rpc(config.servers[labelOverride], 'ask', { model, messages, stream: true, sessionId: opts.sessionId });
@@ -690,11 +562,10 @@ async function runQuery(model: string, prompt: string, opts: { noCache?: boolean
       if (opts.sessionId) {
         messages.push({ role: 'assistant', content: finalContent });
         saveSession(opts.sessionId, messages);
-        console.log(`🔗 Session ID: ${opts.sessionId}`);
       }
-      return;
+      process.exit(0);
     } catch (err: any) {
-      console.error(`❌ Error on targeted server ${labelOverride}: ${err.message}`);
+      console.error(`❌ Error: ${err.message}`);
       process.exit(1);
     }
   }
@@ -709,12 +580,9 @@ async function runQuery(model: string, prompt: string, opts: { noCache?: boolean
       if (opts.sessionId) {
         messages.push({ role: 'assistant', content: finalContent });
         saveSession(opts.sessionId, messages);
-        console.log(`🔗 Session ID: ${opts.sessionId}`);
       }
-      return;
-    } catch (err: any) {
-      console.warn(`⚠️ Server ${server.name} failed/offline, trying next...`);
-    }
+      process.exit(0);
+    } catch (e) { /* fallback */ }
   }
 
   try {
@@ -725,11 +593,10 @@ async function runQuery(model: string, prompt: string, opts: { noCache?: boolean
     if (opts.sessionId) {
       messages.push({ role: 'assistant', content: finalContent });
       saveSession(opts.sessionId, messages);
-      console.log(`🔗 Session ID: ${opts.sessionId}`);
     }
+    process.exit(0);
   } catch (err: any) {
-    console.error(`❌ All servers and local execution failed.`);
-    console.error(`   Last error: ${err.message}`);
+    console.error(`❌ Failed: ${err.message}`);
     process.exit(1);
   }
 }

@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.0] - 2026-04-26
+### Added
+- **Rhea Image Creation Skill**: Introduced a master-class guide in `.skills/rhea-images/` for high-verbosity, on-brand image generation.
+- **Midnight Brand Identity**: Transitioned all visuals to the sophisticated "Midnight" palette, moving away from "Workshop" tones.
+### Fixed
+- **CLI Help Interpolation**: Fixed a critical bug in `rhea-cli.ts` where template literals were not correctly escaped in the `--help` output.
+
 ## [1.4.0] - 2026-04-26
 ### Added
 - **Rhea Images Library**: Extracted image generation into a dedicated `@rhea/images` package.
