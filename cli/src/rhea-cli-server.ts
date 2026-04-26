@@ -17,6 +17,36 @@ const command = args[0];
 let serverConfig = loadServerConfig() as any;
 if (!serverConfig.codes) serverConfig.codes = {};
 
+function showHelp() {
+  console.log(`
+Rhea Server: Secure Remote Execution Daemon
+===========================================
+
+Usage:
+  rhea-cli-server <command> [options]
+
+Commands:
+  pair create [label]   Generate a permanent pairing token
+  pair code [label]     Generate a short (6-char) pairing code (valid for 10m)
+  pair list             List all paired client tokens
+  pair revoke <token>   Revoke a specific client token
+  daemon [port]         Start the persistent OpenAI-compatible API server
+  rpc                   Stdio RPC handler (used internally by SSH clients)
+
+Flags:
+  --help                Show this help message
+
+Examples:
+  rhea-cli-server pair code "Mac-Laptop"
+  rhea-cli-server daemon 8787
+  `);
+}
+
+if (args.includes('--help')) {
+  showHelp();
+  process.exit(0);
+}
+
 // ---- COMMAND: PAIR CREATE ----
 if (command === 'pair' && args[1] === 'create') {
   const token = `rhea_` + crypto.randomBytes(16).toString('hex');
@@ -183,26 +213,12 @@ if (command === 'rpc') {
         }
         process.exit(0);
       }
-
-      // 5. Handle DRAW
-      if (payload.action === 'draw') {
-        const { generateImage } = await import('@rhea/lib');
-        const response = await generateImage(payload.model, payload.prompt, payload.sessionId);
-        console.log(JSON.stringify(response));
-        process.exit(0);
-      }
       
     } catch (err: any) {
       console.log(JSON.stringify({ error: { message: err.message } }));
       process.exit(0);
     }
   });
-} else if (!['rpc', 'pair', 'daemon'].includes(command)) {
-  console.log("Usage:");
-  console.log("  rhea-cli-server pair create [label]");
-  console.log("  rhea-cli-server pair code [label]");
-  console.log("  rhea-cli-server pair list");
-  console.log("  rhea-cli-server pair revoke <token>");
-  console.log("  rhea-cli-server daemon [port]");
-  console.log("  rhea-cli-server rpc   (Used internally by SSH clients)");
+} else {
+  showHelp();
 }

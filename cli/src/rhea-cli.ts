@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import providers from '../../providers.json' with { type: 'json' };
 import { 
   loadClientConfig, 
@@ -18,6 +20,7 @@ import {
   loadSession
 } from '@rhea/lib';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
 const command = args[0];
 
@@ -27,6 +30,51 @@ let config = loadClientConfig();
 function getActiveServerLabel(): string | null {
   const serverFlagIndex = args.indexOf('--server');
   return serverFlagIndex > -1 ? args[serverFlagIndex + 1] : config.activeServer;
+}
+
+function showHelp() {
+  const readmePath = path.join(__dirname, '../../README.md');
+  const readme = fs.existsSync(readmePath) ? fs.readFileSync(readmePath, 'utf8') : '';
+  
+  console.log(`
+Rhea: Your AI Subscriptions, Now Your Private APIs
+==================================================
+
+Usage:
+  rhea-cli <command> [options]
+
+Commands:
+  ask         Ask a question to Rhea's orchestrated models (streams in real-time)
+  draw        Generate or edit an image using Nano Banana (Gemini 3.1 Flash Image)
+  pair        Enroll a new remote server profile
+  servers     List configured server profiles
+  use         Switch the active server profile
+  order       Set a persistent fallback order for servers
+  status      Check connectivity to a server
+  list        List available models (local or remote)
+  cache       Manage the local prompt cache
+  unpair      Remove a server profile
+
+Global Flags:
+  --server <label>    Target a specific server for a single command
+  --help              Show this help message and read documentation
+
+Examples:
+  rhea-cli ask "Explain quantum entanglement"
+  rhea-cli draw "A cyberpunk city" --output city.png --new-session
+  rhea-cli order primary-vps home-server mac-laptop
+  rhea-cli pair my-mac user@mac-host --code B3F2A1
+
+---
+DOCUMENTATION (README.md):
+---
+${readme.split('## 🚀 Getting Started')[0]}
+  `);
+}
+
+if (args.includes('--help')) {
+  showHelp();
+  process.exit(0);
 }
 
 // ---- COMMAND: PAIR ----
@@ -304,18 +352,8 @@ if (command === 'list') {
     const providersObj = providers as Record<string, any>;
     Object.keys(providersObj).forEach(m => console.log(`  - ${m}`));
   }
-} else if (!['pair', 'status', 'ask', 'list', 'unpair', 'servers', 'use', 'order', 'cache', 'draw'].includes(command as string)) {
-  console.log(`Usage: 
-  rhea-cli pair <label> <host> [--token <token> | --code <code>]
-  rhea-cli servers
-  rhea-cli use <label>
-  rhea-cli order <server1> <server2> ...
-  rhea-cli status [--server <label>]
-  rhea-cli draw [--server <label>] [--model <model>] [--session <id> | --new-session] --output <path.png> <prompt>
-  rhea-cli unpair <label>
-  rhea-cli list [--server <label>]
-  rhea-cli ask [--server <label>] [--model <model>] [--no-cache] [--session <id> | --new-session] <prompt>
-  rhea-cli cache clear`);
+} else {
+  showHelp();
 }
 
 async function runQuery(model: string, prompt: string, opts: { noCache?: boolean, sessionId?: string | null } = {}) {
