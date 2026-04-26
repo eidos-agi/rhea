@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/rhea-banner.svg" alt="Rhea AI Banner" width="800">
+  <img src="assets/rhea-banner.png" alt="Rhea AI Banner" width="800">
 </p>
 
 # Rhea: Your AI Subscriptions, Now Your Private APIs
@@ -8,6 +8,10 @@ Hi, I'm **Daniel**, an AGI researcher at [Eidos AGI](https://eidosagi.com). For 
 
 Rhea is the culmination of that research—a high-performance orchestration suite that turns your existing, subscription-backed AI CLIs (Claude Pro, Gemini Advanced, Codex) into secure, remote, and always-on APIs.
 
+<p align="center">
+  <img src="assets/rhea-savings.png" alt="Rhea Savings Model" width="800">
+</p>
+
 ## 💎 The "Zero-Cost" Intelligence Engine
 
 The most powerful models in the world are already on your machine, hidden behind "consumer" subscriptions. You're already paying for them. **Rhea lets you use them to their maximum potential.**
@@ -15,9 +19,18 @@ The most powerful models in the world are already on your machine, hidden behind
 - **Stop Paying Per-Token**: Rhea securely "tunnels" into your authenticated local environments, allowing you to use your flat-rate subscriptions as a robust API layer for your own software, agents, and IDEs.
 - **Escape the "Precision Trap"**: Based on our research into [Language as Momentum](https://eidosagi.com/language-as-momentum), Rhea orchestrates multiple models to achieve "structural serendipity"—finding high-fidelity solutions that no single model could reach in isolation.
 
+---
+
+## 🛠️ Architecture
+
+Rhea operates as a split client/server system, optimized for secure private networks.
+
 <p align="center">
-  <img src="assets/rhea-savings.svg" alt="Rhea Savings Model" width="800">
+  <img src="assets/rhea-topology.png" alt="Rhea Topology" width="800">
 </p>
+
+- **Rhea Server**: Runs on your authenticated machine (e.g., your personal Mac). It manages the model CLIs and exposes a narrow JSON-RPC interface.
+- **Rhea Client**: Runs anywhere (VPS, Laptop, Mobile). It securely tunnels requests to the server over Tailscale SSH.
 
 ---
 
@@ -27,7 +40,7 @@ The most powerful models in the world are already on your machine, hidden behind
 Rhea implements our "Pod" architecture: a three-model Socratic debate engine (Dreamer/Doubter/Decider). This is more than just a loop; it is a mathematical necessity for escaping the logical "local minima" of single models. 
 
 <p align="center">
-  <img src="assets/rhea-pod.svg" alt="Rhea Pod Orchestration" width="800">
+  <img src="assets/rhea-pod.png" alt="Rhea Pod Orchestration" width="800">
 </p>
 
 - **Dreamer**: Performs a "lossy projection" of the problem, expanding the solution space.
@@ -36,13 +49,6 @@ Rhea implements our "Pod" architecture: a three-model Socratic debate engine (Dr
 
 ### Multi-modal Support (Nano Banana)
 Generate and iteratively edit high-resolution images using the Gemini 3.1 Flash Image model series or cloud APIs, all managed through your secure Rhea tunnel.
-
-### Secure "Compute Tunneling"
-Run your heavy or authenticated tools on your powerful hardware (Mac, Cloud VM) and query them remotely over an encrypted **Tailscale SSH** connection.
-
-<p align="center">
-  <img src="assets/rhea-topology.svg" alt="Rhea Topology" width="800">
-</p>
 
 ---
 
@@ -60,15 +66,6 @@ cd cli && npm link
 Use our interactive wizard to link your providers and pair your first server:
 ```bash
 rhea-cli setup
-```
-
-### 3. Usage
-```bash
-# Ask a question (streams in real-time)
-rhea-cli ask "Explain quantum entanglement"
-
-# Generate an image
-rhea-cli draw "A majestic Rhea bird" --output bird.png --aspect-ratio 16:9
 ```
 
 ---

@@ -83,7 +83,7 @@ async function handleApiImage(options: ImageGenerationOptions, provider: ImageAp
     case 'openai':
       return callOpenAI(prompt, apiKey, provider.upstream_model, size);
     case 'openrouter':
-      return callOpenRouter(prompt, apiKey, provider.upstream_model, size);
+      return callOpenRouter(prompt, apiKey, provider.upstream_model, aspectRatio, size);
     case 'stability':
       return callStability(prompt, apiKey, provider.upstream_model, aspectRatio);
     case 'fal':
@@ -101,7 +101,7 @@ async function callOpenAI(prompt: string, apiKey: string, model: string, size?: 
       model,
       prompt,
       n: 1,
-      size: size === '2k' ? '1024x1792' : (size || '1024x1024'), // Map Rhea size labels to OpenAI
+      size: size === '2k' ? '1024x1792' : (size || '1024x1024'),
       response_format: 'b64_json'
     })
   });
@@ -109,8 +109,8 @@ async function callOpenAI(prompt: string, apiKey: string, model: string, size?: 
   return await response.json();
 }
 
-async function callOpenRouter(prompt: string, apiKey: string, model: string, size?: string): Promise<ImageResponse> {
-  const response = await fetch("https://openrouter.ai/api/v1/images/generations", {
+async function callOpenRouter(prompt: string, apiKey: string, model: string, aspectRatio?: string, size?: string): Promise<ImageResponse> {
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: 'POST',
     headers: { 
       'Content-Type': 'application/json', 
@@ -120,24 +120,57 @@ async function callOpenRouter(prompt: string, apiKey: string, model: string, siz
     },
     body: JSON.stringify({
       model,
-      prompt,
-      n: 1,
-      size: size === '2k' ? '1024x1792' : (size || '1024x1024'),
-      response_format: 'b64_json'
+      messages: [{ role: 'user', content: prompt }],
+      modalities: ["image"],
+      aspect_ratio: aspectRatio,
+      size
     })
   });
+
   if (!response.ok) throw new Error(`OpenRouter API error: ${response.status} ${await response.text()}`);
-  return await response.json();
+  const data = await response.json() as any;
+  
+  let b64 = "";
+  const message = data.choices[0].message;
+  
+  // Exhaustive search for image data in the response
+  if (message.images && message.images.length > 0) {
+    const rawImage = message.images[0];
+    b64 = typeof rawImage === 'string' ? (rawImage.includes('base64,') ? rawImage.split('base64,')[1] : rawImage) : (rawImage.base64 || "");
+  } else if (message.content && typeof message.content === 'string') {
+    if (message.content.includes('base64,')) {
+      b64 = message.content.split('base64,')[1].split('"')[0].split(')')[0].split('\n')[0];
+    } else if (message.content.startsWith('http')) {
+      // It's a URL, fetch it
+      const imgRes = await fetch(message.content.trim());
+      const buffer = await imgRes.arrayBuffer();
+      b64 = Buffer.from(buffer).toString('base64');
+    }
+  }
+
+  if (!b64) {
+    // Check for tool calls or reasoning outputs that might contain the data
+    const strData = JSON.stringify(data);
+    if (strData.includes('base64,')) {
+      b64 = strData.split('base64,')[1].split('"')[0];
+    } else {
+      throw new Error(`Could not find image data in OpenRouter response. Payload: ${JSON.stringify(data)}`);
+    }
+  }
+
+  return {
+    object: "image",
+    created: Math.floor(Date.now() / 1000),
+    data: [{ b64_json: b64 }]
+  };
 }
 
 async function callStability(prompt: string, apiKey: string, model: string, aspectRatio?: string): Promise<ImageResponse> {
-  // Map Rhea aspect ratio labels to Stability
   const ratioMap: Record<string, string> = { "16:9": "16:9", "1:1": "1:1", "4:3": "4:3", "9:16": "9:16" };
   const formData = new FormData();
   formData.append('prompt', prompt);
   formData.append('output_format', 'png');
   if (aspectRatio) formData.append('aspect_ratio', ratioMap[aspectRatio] || aspectRatio);
-
   const response = await fetch(`https://api.stability.ai/v2beta/stable-image/generate/${model}`, {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${apiKey}`, 'Accept': 'application/json' },
@@ -160,15 +193,11 @@ async function callFal(prompt: string, apiKey: string, model: string): Promise<I
   });
   if (!response.ok) throw new Error(`FAL.ai API error: ${response.status} ${await response.text()}`);
   const data = await response.json() as any;
-  
-  // FAL usually returns a URL, we convert to base64 to keep Rhea standard
   const imgRes = await fetch(data.images[0].url);
   const buffer = await imgRes.arrayBuffer();
-  const b64 = Buffer.from(buffer).toString('base64');
-  
   return {
     object: "image",
     created: Math.floor(Date.now() / 1000),
-    data: [{ b64_json: b64 }]
+    data: [{ b64_json: Buffer.from(buffer).toString('base64') }]
   };
 }
