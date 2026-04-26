@@ -534,6 +534,54 @@ if (command === 'draw') {
   })();
 }
 
+// ---- COMMAND: DEBATE ----
+if (command === 'debate') {
+  const modelArgsIndex = args.indexOf('--models');
+  const models = modelArgsIndex > -1 ? args[modelArgsIndex + 1].split(',') : undefined;
+  
+  const serverFlagIndex = args.indexOf('--server');
+  
+  let promptArgs = args.filter((arg, i) => {
+    if (i === 0) return false;
+    if (i === modelArgsIndex || i === modelArgsIndex + 1) return false;
+    if (i === serverFlagIndex || i === serverFlagIndex + 1) return false;
+    return true;
+  });
+  
+  const question = promptArgs.join(' ');
+  if (!question) {
+    console.error("❌ Error: A question is required for a debate.");
+    process.exit(1);
+  }
+
+  (async () => {
+    const { Pod } = await import('@rhea/lib');
+    const availableModels = Object.keys(providers).filter(m => m !== 'draw');
+    const podModels = models || availableModels.slice(0, 3);
+    
+    console.log(`🧠 Starting Rhea Pod debate with: ${podModels.join(', ')}\n`);
+    const pod = new Pod(podModels, config);
+    
+    try {
+      const result = await pod.debate(question);
+      
+      result.rounds.forEach(r => {
+        console.log(`\n--- ROUND ${r.round} ---`);
+        console.log(`💎 DREAMER:  ${r.proposal.slice(0, 200)}...`);
+        console.log(`🤔 DOUBTER:  ${r.critique.slice(0, 200)}...`);
+        console.log(`⚖️ DECIDER:  ${r.decision.answer}`);
+        console.log(`🎯 Confident: ${r.decision.confident ? '✅' : '❌'}`);
+      });
+
+      console.log(`\n🏆 FINAL DECISION:\n${result.decision}`);
+      console.log(`\n📊 Confidence: ${result.confidence}`);
+    } catch (err: any) {
+      console.error(`❌ Debate failed: ${err.message}`);
+      process.exit(1);
+    }
+  })();
+}
+
 // ---- COMMAND: UNPAIR ----
 if (command === 'unpair') {
   const label = args[1];
