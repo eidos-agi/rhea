@@ -1,33 +1,55 @@
 import { spawn } from 'child_process';
 import { ServerProfile } from './config.js';
 
-export function rpc(server: ServerProfile, action: string, payloadData = {}): Promise<any> {
-  return new Promise((resolve, reject) => {
-    const payload = JSON.stringify({ action, token: server.token, ...payloadData });
-    
-    // Spawn SSH. We invoke `rhea-cli-server rpc` directly.
-    const ssh = spawn('ssh', [server.host, 'rhea-cli-server', 'rpc']);
-    let stdout = '';
-    let stderr = '';
+export async function* rpc(
+  server: ServerProfile, 
+  action: string, 
+  payloadData = {}
+): AsyncGenerator<any> {
+  const payload = JSON.stringify({ action, token: server.token, ...payloadData });
+  
+  // Spawn SSH. We invoke `rhea-cli-server rpc` directly.
+  const ssh = spawn('ssh', [server.host, 'rhea-cli-server', 'rpc']);
+  let stderr = '';
 
-    ssh.stdout.on('data', (data: Buffer) => { stdout += data.toString(); });
+  // Handle stdout as an ndjson stream
+  let buffer = '';
+  
+  // Create a promise to handle process completion and stderr
+  const exitPromise = new Promise<void>((resolve, reject) => {
     ssh.stderr.on('data', (data: Buffer) => { stderr += data.toString(); });
-
     ssh.on('close', (code: number) => {
       if (code !== 0) {
-        return reject(new Error(`Server offline or unreachable.\nSSH Error: ${stderr.trim()}`));
-      }
-      try {
-        const res = JSON.parse(stdout.trim());
-        if (res.error) return reject(new Error(res.error.message));
-        resolve(res);
-      } catch (err) {
-        reject(new Error(`Failed to parse server response: ${stdout}`));
+        reject(new Error(`Server offline or unreachable.\nSSH Error: ${stderr.trim()}`));
+      } else {
+        resolve();
       }
     });
-
-    // Send payload over stdin
-    ssh.stdin.write(payload);
-    ssh.stdin.end();
   });
+
+  // Generator to read from stdout
+  const readStdout = async function* () {
+    for await (const chunk of ssh.stdout) {
+      buffer += chunk.toString();
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const res = JSON.parse(line);
+          if (res.error) throw new Error(res.error.message);
+          yield res;
+        } catch (err) {
+          throw new Error(`Failed to parse server response: ${line}`);
+        }
+      }
+    }
+  };
+
+  // Yield from the stdout reader
+  yield* readStdout();
+
+  // Wait for the process to exit
+  await exitPromise;
 }

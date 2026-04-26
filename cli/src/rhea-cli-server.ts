@@ -14,7 +14,8 @@ const args = process.argv.slice(2);
 const command = args[0];
 
 // Load paired tokens
-let serverConfig = loadServerConfig();
+let serverConfig = loadServerConfig() as any;
+if (!serverConfig.codes) serverConfig.codes = {};
 
 // ---- COMMAND: PAIR CREATE ----
 if (command === 'pair' && args[1] === 'create') {
@@ -30,11 +31,26 @@ if (command === 'pair' && args[1] === 'create') {
   process.exit(0);
 }
 
+// ---- COMMAND: PAIR CODE (Generate short code) ----
+if (command === 'pair' && args[1] === 'code') {
+  const code = crypto.randomBytes(3).toString('hex').toUpperCase(); // 6 chars
+  const label = args[2] || 'new-client';
+  
+  serverConfig.codes[code] = { label, created: new Date().toISOString() };
+  saveServerConfig(serverConfig);
+  
+  console.log(`🎫 Pairing Code: ${code}`);
+  console.log(`Valid for 10 minutes. Run on client:`);
+  console.log(`  rhea-cli pair <label> ${os.userInfo().username}@<tailnet-hostname> --code ${code}`);
+  process.exit(0);
+}
+
 // ---- COMMAND: PAIR LIST ----
 if (command === 'pair' && args[1] === 'list') {
   console.log("Paired Tokens:");
   for (const [token, data] of Object.entries(serverConfig.tokens)) {
-    console.log(`  - ${token.slice(0, 10)}... [${data.label}] (Created: ${data.created})`);
+    const d = data as any;
+    console.log(`  - ${token.slice(0, 10)}... [${d.label}] (Created: ${d.created})`);
   }
   process.exit(0);
 }
@@ -74,9 +90,22 @@ if (command === 'daemon') {
       req.on('end', async () => {
         try {
           const data = JSON.parse(body);
-          const responseJson = await routeChatCompletion(data.model, data.messages || []);
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify(responseJson));
+          const generator = routeChatCompletion(data.model, data.messages || [], data.stream);
+          
+          if (data.stream) {
+            res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+            for await (const chunk of generator) {
+              res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+            }
+            res.end('data: [DONE]\n\n');
+          } else {
+            let finalResponse;
+            for await (const chunk of generator) {
+              finalResponse = chunk;
+            }
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(finalResponse));
+          }
         } catch (err: any) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: { message: err.message } }));
@@ -109,15 +138,33 @@ if (command === 'rpc') {
     try {
       const payload = JSON.parse(body);
       
+      // Special action: Exchange Code (No token required, but uses SSH auth as base)
+      if (payload.action === 'exchange-code') {
+        const codeData = serverConfig.codes[payload.code];
+        if (!codeData) {
+          console.log(JSON.stringify({ error: { message: "Invalid or expired pairing code." } }));
+          process.exit(0);
+        }
+        
+        // Convert code to token
+        const token = `rhea_` + crypto.randomBytes(16).toString('hex');
+        serverConfig.tokens[token] = { label: codeData.label, created: new Date().toISOString() };
+        delete serverConfig.codes[payload.code];
+        saveServerConfig(serverConfig);
+        
+        console.log(JSON.stringify({ token }));
+        process.exit(0);
+      }
+
       // 1. Validate Token
       if (!serverConfig.tokens[payload.token]) {
         console.log(JSON.stringify({ error: { message: "Unauthorized: Invalid or revoked pairing token." } }));
-        process.exit(0); // Exit 0 to pass JSON back cleanly
+        process.exit(0);
       }
 
       // 2. Handle PING
       if (payload.action === 'ping') {
-        console.log(JSON.stringify({ status: 'ok', version: '1.1.0' }));
+        console.log(JSON.stringify({ status: 'ok', version: '1.3.0' }));
         process.exit(0);
       }
 
@@ -130,8 +177,10 @@ if (command === 'rpc') {
 
       // 4. Handle ASK
       if (payload.action === 'ask') {
-        const responseJson = await routeChatCompletion(payload.model, payload.messages);
-        console.log(JSON.stringify(responseJson));
+        const generator = routeChatCompletion(payload.model, payload.messages, payload.stream);
+        for await (const chunk of generator) {
+          console.log(JSON.stringify(chunk));
+        }
         process.exit(0);
       }
       
@@ -143,6 +192,7 @@ if (command === 'rpc') {
 } else if (!['rpc', 'pair', 'daemon'].includes(command)) {
   console.log("Usage:");
   console.log("  rhea-cli-server pair create [label]");
+  console.log("  rhea-cli-server pair code [label]");
   console.log("  rhea-cli-server pair list");
   console.log("  rhea-cli-server pair revoke <token>");
   console.log("  rhea-cli-server daemon [port]");

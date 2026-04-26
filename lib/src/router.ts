@@ -1,8 +1,5 @@
-import { execFile } from 'child_process';
-import { promisify } from 'util';
+import { spawn } from 'child_process';
 import providers from '../../providers.json' with { type: 'json' };
-
-const execFileAsync = promisify(execFile);
 
 export interface CliProvider {
   type: 'cli';
@@ -32,7 +29,7 @@ export interface OpenAIResponse {
   choices: Array<{
     index: number;
     message: Message;
-    finish_reason: string;
+    finish_reason: string | null;
   }>;
   usage?: {
     prompt_tokens: number;
@@ -41,9 +38,25 @@ export interface OpenAIResponse {
   };
 }
 
+export interface StreamChunk {
+  id: string;
+  object: "chat.completion.chunk";
+  created: number;
+  model: string;
+  choices: Array<{
+    index: number;
+    delta: Partial<Message>;
+    finish_reason: string | null;
+  }>;
+}
+
 const config = providers as Record<string, Provider>;
 
-export async function routeChatCompletion(modelReq: string, messages: Message[]): Promise<any> {
+export async function* routeChatCompletion(
+  modelReq: string, 
+  messages: Message[], 
+  stream: boolean = false
+): AsyncGenerator<StreamChunk | OpenAIResponse> {
   const provider = config[modelReq];
 
   if (!provider) {
@@ -57,11 +70,42 @@ export async function routeChatCompletion(modelReq: string, messages: Message[])
     const command = args[0];
     const cmdArgs = args.slice(1);
 
-    try {
-      const { stdout } = await execFileAsync(command, cmdArgs);
-      return buildOpenAIResponse(modelReq, stdout.trim());
-    } catch (err: any) {
-      throw new Error(`CLI execution failed: ${err.message}`);
+    const child = spawn(command, cmdArgs);
+    let fullContent = '';
+    const id = `chatcmpl-${Math.random().toString(36).slice(2)}`;
+    const created = Math.floor(Date.now() / 1000);
+
+    for await (const chunk of child.stdout) {
+      const content = chunk.toString();
+      fullContent += content;
+      if (stream) {
+        yield {
+          id,
+          object: "chat.completion.chunk",
+          created,
+          model: modelReq,
+          choices: [{ index: 0, delta: { content }, finish_reason: null }]
+        };
+      }
+    }
+
+    if (!stream) {
+      yield {
+        id,
+        object: "chat.completion",
+        created,
+        model: modelReq,
+        choices: [{ index: 0, message: { role: "assistant", content: fullContent.trim() }, finish_reason: "stop" }],
+        usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
+      };
+    } else {
+      yield {
+        id,
+        object: "chat.completion.chunk",
+        created,
+        model: modelReq,
+        choices: [{ index: 0, delta: {}, finish_reason: "stop" }]
+      };
     }
 
   } else if (provider.type === 'openai') {
@@ -70,7 +114,7 @@ export async function routeChatCompletion(modelReq: string, messages: Message[])
       throw new Error(`Missing environment variable: ${provider.api_key_env}`);
     }
 
-    const payload = { model: provider.upstream_model, messages, stream: false };
+    const payload = { model: provider.upstream_model, messages, stream };
     const endpoint = provider.base_url.endsWith('/chat/completions') 
       ? provider.base_url 
       : `${provider.base_url.replace(/\/$/, '')}/chat/completions`;
@@ -86,17 +130,38 @@ export async function routeChatCompletion(modelReq: string, messages: Message[])
     });
 
     if (!response.ok) throw new Error(`API error from ${endpoint}: ${response.status}`);
-    return await response.json();
-  }
-}
 
-function buildOpenAIResponse(model: string, content: string): OpenAIResponse {
-  return {
-    id: `chatcmpl-${Math.random().toString(36).slice(2)}`,
-    object: "chat.completion",
-    created: Math.floor(Date.now() / 1000),
-    model: model,
-    choices: [{ index: 0, message: { role: "assistant", content: content }, finish_reason: "stop" }],
-    usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
-  };
+    if (!stream) {
+      const data = await response.json();
+      yield data;
+    } else {
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("Failed to get reader from response body");
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const cleanLine = line.trim();
+          if (!cleanLine || cleanLine === 'data: [DONE]') continue;
+          if (cleanLine.startsWith('data: ')) {
+            try {
+              const chunk = JSON.parse(cleanLine.slice(6));
+              yield chunk;
+            } catch (e) {
+              console.error("Failed to parse stream line:", cleanLine);
+            }
+          }
+        }
+      }
+    }
+  }
 }

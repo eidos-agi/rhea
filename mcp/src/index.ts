@@ -35,16 +35,24 @@ async function executeRheaPrompt(model: string, prompt: string) {
   
   for (const srv of orderedServers) {
     try {
-      const res = await rpc(srv, 'ask', { model, messages: [{ role: 'user', content: prompt }] });
-      return res.choices[0].message.content;
+      const generator = rpc(srv, 'ask', { model, messages: [{ role: 'user', content: prompt }], stream: false });
+      let finalRes;
+      for await (const chunk of generator) {
+        finalRes = chunk;
+      }
+      return finalRes.choices[0].message.content;
     } catch (e) {
       // Fallback to next
     }
   }
 
   // Final local fallback
-  const res = await routeChatCompletion(model, [{ role: 'user', content: prompt }]);
-  return res.choices[0].message.content;
+  const generator = routeChatCompletion(model, [{ role: 'user', content: prompt }], false);
+  let finalRes;
+  for await (const chunk of generator) {
+    finalRes = chunk;
+  }
+  return (finalRes as any).choices[0].message.content;
 }
 
 server.setRequestHandler(ListToolsRequestSchema, async () => {
