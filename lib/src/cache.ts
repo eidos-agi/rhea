@@ -3,7 +3,9 @@ import os from 'os';
 import path from 'path';
 import crypto from 'crypto';
 
-const CACHE_DIR = path.join(os.homedir(), '.rhea-cache');
+import { RHEA_DIR } from './config.js';
+
+const CACHE_DIR = path.join(RHEA_DIR, 'cache');
 
 export function getCacheKey(model: string, messages: any[]): string {
   const hash = crypto.createHash('sha256');

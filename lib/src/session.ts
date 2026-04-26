@@ -4,7 +4,9 @@ import path from 'path';
 import crypto from 'crypto';
 import { Message } from './router.js';
 
-const SESSIONS_DIR = path.join(os.homedir(), '.rhea-sessions');
+import { RHEA_DIR } from './config.js';
+
+const SESSIONS_DIR = path.join(RHEA_DIR, 'sessions');
 
 export function generateSessionId(): string {
   return crypto.randomBytes(4).toString('hex').toUpperCase(); // 8 chars

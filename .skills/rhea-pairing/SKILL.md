@@ -22,4 +22,4 @@ A specialized guide for enrolling and managing Rhea remote server identities.
 
 ## Troubleshooting
 - **Reachability: Offline**: Ensure Tailscale is active and the host is reachable via `ssh <host>`.
-- **Unauthorized**: The token may have been revoked or the config file `~/.rhea-cli.json` was modified.
+- **Unauthorized**: The token may have been revoked or the config file `~/rhea/client.json` was modified.

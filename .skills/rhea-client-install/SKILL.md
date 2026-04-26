@@ -34,4 +34,4 @@ A comprehensive guide for setting up a Rhea client on a new machine.
    ```
 
 ## Configuration
-The client configuration is stored in `~/.rhea-cli.json`. You can manually adjust the `order` array here to define your preferred fallback sequence.
+The client configuration is stored in `~/rhea/client.json`. You can manually adjust the `order` array here to define your preferred fallback sequence.

@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.0] - 2026-04-26
+### Changed
+- **Config Storage**: Unified all persistent state into a single `~/rhea/` directory.
+- **Project Infrastructure**: Adopted `foss-forge` standards for community health.
+### Added
+- **Community Health**: Added `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, and `SECURITY.md`.
+
 ## [1.2.0] - 2026-04-26
 ### Added
 - **Multi-modal Support**: Integrated image generation using the **Nano Banana** model series (Gemini 3.1 Flash Image).

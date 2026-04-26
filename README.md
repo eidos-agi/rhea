@@ -108,8 +108,8 @@ For commercial inquiries, please contact Eidos AGI.
 
 ## 🛠️ Configuration
 
-Rhea stores configuration in:
-- `~/.rhea-cli.json` (Profiles and ordering)
-- `~/.rhea-cli-server.json` (Server-side pairing tokens)
-- `~/.rhea-cache/` (Local result cache)
-- `~/.rhea-sessions/` (Persistent conversation history)
+Rhea stores all persistent state in your home directory at `~/rhea/`:
+- `~/rhea/client.json`: Remote server profiles and fallback ordering.
+- `~/rhea/server.json`: Server-side pairing tokens and authorized clients.
+- `~/rhea/cache/`: Local context cache (SHA-256 hashed).
+- `~/rhea/sessions/`: Persistent multi-turn conversation history.
