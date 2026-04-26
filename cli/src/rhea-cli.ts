@@ -3,6 +3,8 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { spawn, execSync } from 'child_process';
+import readline from 'readline';
 import providers from '../../providers.json' with { type: 'json' };
 import { 
   loadClientConfig, 
@@ -17,13 +19,19 @@ import {
   ServerProfile,
   generateSessionId,
   saveSession,
-  loadSession
+  loadSession,
+  loadKeys,
+  saveKeys,
+  injectEnvKeys
 } from '@rhea/lib';
 import { generateImage } from '@rhea/images';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
 const command = args[0];
+
+// Injects keys from keystore into process.env before any model execution
+injectEnvKeys();
 
 // Load configuration
 let config = loadClientConfig();
@@ -54,6 +62,9 @@ Commands:
   status      Check connectivity to a server
   list        List available models (local or remote)
   cache       Manage the local prompt cache
+  key         Manage API keys in the secure keystore
+  doctor      Diagnose the health of your Rhea environment
+  setup       Interactive first-time setup wizard
   unpair      Remove a server profile
 
 Global Flags:
@@ -89,8 +100,147 @@ if (args.includes('--help')) {
   process.exit(0);
 }
 
+// ---- COMMAND: KEY ----
+if (command === 'key') {
+  const subCommand = args[1];
+  const keys = loadKeys();
+
+  if (subCommand === 'set') {
+    const name = args[2];
+    const value = args[3];
+    if (!name || !value) {
+      console.log("Usage: rhea-cli key set <NAME> <value>");
+      process.exit(1);
+    }
+    keys[name] = value;
+    saveKeys(keys);
+    console.log(`✅ Key '${name}' saved to secure keystore.`);
+  } else if (subCommand === 'list') {
+    console.log("Configured Keys:");
+    for (const name of Object.keys(keys)) {
+      console.log(`  - ${name}: ************`);
+    }
+  } else if (subCommand === 'remove') {
+    const name = args[2];
+    if (keys[name]) {
+      delete keys[name];
+      saveKeys(keys);
+      console.log(`✅ Key '${name}' removed.`);
+    } else {
+      console.error(`❌ Key '${name}' not found.`);
+    }
+  } else {
+    console.log("Usage: rhea-cli key [set|list|remove]");
+  }
+  process.exit(0);
+}
+
+// ---- COMMAND: DOCTOR ----
+if (command === 'doctor') {
+  (async () => {
+    console.log("🩺 Rhea Diagnostic Report\n");
+
+    // 1. Check binaries
+    const binaries = ['claude', 'gemini', 'ssh'];
+    for (const bin of binaries) {
+      try {
+        execSync(`which ${bin}`, { stdio: 'ignore' });
+        console.log(`✅ ${bin.padEnd(10)} : Installed`);
+      } catch (e) {
+        console.warn(`⚠️ ${bin.padEnd(10)} : NOT FOUND (Some features will be limited)`);
+      }
+    }
+
+    // 2. Check keys
+    const keys = loadKeys();
+    const requiredKeys = ['OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'STABILITY_API_KEY', 'FAL_KEY'];
+    console.log("\nSecrets:");
+    for (const key of requiredKeys) {
+      if (keys[key]) console.log(`✅ ${key.padEnd(20)} : Configured`);
+      else console.log(`⚪ ${key.padEnd(20)} : Not set`);
+    }
+
+    // 3. Check servers
+    console.log("\nServers:");
+    for (const [name, server] of Object.entries(config.servers)) {
+      try {
+        const generator = rpc(server, 'ping');
+        for await (const _ of generator) { /* ping */ }
+        console.log(`✅ ${name.padEnd(15)} : Online (${server.host})`);
+      } catch (e: any) {
+        console.log(`❌ ${name.padEnd(15)} : Offline - ${e.message}`);
+      }
+    }
+
+    console.log("\nDone.");
+    process.exit(0);
+  })();
+}
+
+// ---- COMMAND: SETUP (INTERACTIVE) ----
+if (command === 'setup') {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const ask = (q: string): Promise<string> => new Promise(res => rl.question(q, res));
+
+  (async () => {
+    console.log("\n🚀 Welcome to the Rhea Setup Wizard\n");
+
+    // 1. CLI Authentication
+    console.log("Step 1: Local CLI Authentication");
+    const useClaude = (await ask("Do you want to use Claude Pro? (y/n): ")).toLowerCase() === 'y';
+    if (useClaude) {
+      console.log("Please ensure you have run 'claude login' in your terminal.");
+    }
+    
+    const useGemini = (await ask("Do you want to use Gemini Advanced / Image Generation? (y/n): ")).toLowerCase() === 'y';
+    if (useGemini) {
+      console.log("Please ensure you have run 'gemini login' or configured your credentials.");
+    }
+
+    // 2. API Keys
+    console.log("\nStep 2: Cloud API Configuration");
+    const keys = loadKeys();
+    
+    const orKey = await ask("Enter your OpenRouter API Key (press enter to skip): ");
+    if (orKey) keys['OPENROUTER_API_KEY'] = orKey;
+    
+    const oaKey = await ask("Enter your OpenAI API Key (press enter to skip): ");
+    if (oaKey) keys['OPENAI_API_KEY'] = oaKey;
+    
+    saveKeys(keys);
+
+    // 3. Initial Server
+    console.log("\nStep 3: Remote Server Pairing");
+    const pairNow = (await ask("Do you want to pair with a remote server now? (y/n): ")).toLowerCase() === 'y';
+    if (pairNow) {
+      const label = await ask("Enter server label (e.g. mac): ");
+      const host = await ask("Enter server host (e.g. user@mac-host): ");
+      const code = await ask("Enter 6-char pairing code from the server: ");
+      
+      console.log(`Pairing with ${label}...`);
+      try {
+        const tempServer = { host, token: "" };
+        const generator = rpc(tempServer, 'exchange-code', { code });
+        let result;
+        for await (const chunk of generator) { result = chunk; }
+        
+        config.servers[label] = { host, token: result.token };
+        config.activeServer = label;
+        saveClientConfig(config);
+        console.log(`✅ Successfully paired with ${label}`);
+      } catch (err: any) {
+        console.error(`❌ Pairing failed: ${err.message}`);
+      }
+    }
+
+    console.log("\n✨ Setup complete! Try running 'rhea-cli doctor' to verify your environment.");
+    rl.close();
+    process.exit(0);
+  })();
+}
+
 // ---- COMMAND: PAIR ----
-if (command === 'pair') {
+if (command === 'pair' && !['setup'].includes(command)) { // Handled separately or as standalone
   const label = args[1];
   const host = args[2];
   const tokenIndex = args.indexOf('--token');
@@ -395,7 +545,7 @@ if (command === 'list') {
     const providersObj = providers as Record<string, any>;
     Object.keys(providersObj).forEach(m => console.log(`  - ${m}`));
   }
-} else {
+} else if (!['pair', 'status', 'ask', 'list', 'unpair', 'servers', 'use', 'order', 'cache', 'draw', 'key', 'doctor', 'setup'].includes(command as string)) {
   showHelp();
 }
 
