@@ -16,12 +16,13 @@ import {
   loadSession,
   saveSession
 } from "@rhea/lib";
+import { generateImage } from "@rhea/images";
 import providers from "../../providers.json" with { type: "json" };
 
 const server = new Server(
   {
     name: "rhea-mcp",
-    version: "1.1.0",
+    version: "1.2.0",
   },
   {
     capabilities: {
@@ -156,7 +157,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             prompt: { type: "string", description: "The image description" },
             output_path: { type: "string", description: "Where to save the resulting image locally" },
             model: { type: "string", description: "Model name", default: "draw" },
-            session_id: { type: "string", description: "Optional session ID for multi-turn editing" }
+            session_id: { type: "string", description: "Optional session ID for multi-turn editing" },
+            aspect_ratio: { type: "string", description: "Optional aspect ratio (e.g. 16:9, 1:1)" },
+            size: { type: "string", description: "Optional size (e.g. 1k, 2k, 4k)" }
           },
           required: ["prompt", "output_path"],
         },
@@ -259,8 +262,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     case "rhea_draw": {
-      const { prompt, output_path, model, session_id } = request.params.arguments as any;
-      const { generateImage } = await import('@rhea/lib');
+      const { prompt, output_path, model, session_id, aspect_ratio, size } = request.params.arguments as any;
       const fs = await import('fs');
       
       try {
@@ -268,9 +270,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         let response;
         let success = false;
 
+        const drawOpts = { 
+          modelReq: model || 'draw', 
+          prompt, 
+          sessionId: session_id, 
+          aspectRatio: aspect_ratio, 
+          size 
+        };
+
         for (const server of orderedServers) {
           try {
-            const generator = rpc(server, 'draw', { model: model || 'draw', prompt, sessionId: session_id });
+            const generator = rpc(server, 'draw', drawOpts);
             for await (const chunk of generator) { response = chunk; }
             success = true;
             break;
@@ -278,7 +288,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
 
         if (!success) {
-          response = await generateImage(model || 'draw', prompt, session_id);
+          response = await generateImage(drawOpts, providers as any);
         }
 
         if (response.data?.[0]?.b64_json) {

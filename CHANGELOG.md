@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.0] - 2026-04-26
+### Added
+- **Rhea Images Library**: Extracted image generation into a dedicated `@rhea/images` package.
+- **Advanced Draw Flags**: Added support for `--aspect-ratio` and `--size` in `rhea-cli draw`.
+- **Iterative Image Editing**: Improved multi-turn support for Nano Banana (Gemini 3.1 Flash Image).
+
 ## [1.3.0] - 2026-04-26
 ### Changed
 - **Config Storage**: Unified all persistent state into a single `~/rhea/` directory.

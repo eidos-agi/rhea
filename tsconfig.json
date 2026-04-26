@@ -10,6 +10,10 @@
     "resolveJsonModule": true,
     "declaration": true,
     "sourceMap": true,
-    "types": ["node"]
+    "types": ["node"],
+    "paths": {
+      "@rhea/lib": ["./lib/src"],
+      "@rhea/images": ["./images/src"]
+    }
   }
 }

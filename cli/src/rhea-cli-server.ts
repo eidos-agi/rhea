@@ -194,7 +194,7 @@ if (command === 'rpc') {
 
       // 2. Handle PING
       if (payload.action === 'ping') {
-        console.log(JSON.stringify({ status: 'ok', version: '1.3.0' }));
+        console.log(JSON.stringify({ status: 'ok', version: '1.4.0' }));
         process.exit(0);
       }
 
@@ -211,6 +211,14 @@ if (command === 'rpc') {
         for await (const chunk of generator) {
           console.log(JSON.stringify(chunk));
         }
+        process.exit(0);
+      }
+
+      // 5. Handle DRAW
+      if (payload.action === 'draw') {
+        const { generateImage } = await import('@rhea/images');
+        const response = await generateImage(payload, providers as any);
+        console.log(JSON.stringify(response));
         process.exit(0);
       }
       

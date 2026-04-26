@@ -11,6 +11,7 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@rhea/lib": "*"
+    "@rhea/lib": "*",
+    "@rhea/images": "*"
   }
 }

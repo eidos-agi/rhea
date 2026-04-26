@@ -76,7 +76,7 @@ rhea-cli ask "Write a long essay on the history of AI"
 
 **Generate an image (Nano Banana):**
 ```bash
-rhea-cli draw "A cyberpunk city with neon banana signs" --output city.png --new-session
+rhea-cli draw "A cyberpunk city" --output city.png --aspect-ratio 16:9 --size 2k
 ```
 
 **Iteratively edit an image:**

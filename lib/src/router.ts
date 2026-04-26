@@ -1,7 +1,4 @@
 import { spawn } from 'child_process';
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
 import providers from '../../providers.json' with { type: 'json' };
 
 export interface CliProvider {
@@ -50,16 +47,6 @@ export interface StreamChunk {
     index: number;
     delta: Partial<Message>;
     finish_reason: string | null;
-  }>;
-}
-
-export interface ImageResponse {
-  object: "image";
-  created: number;
-  data: Array<{
-    b64_json?: string;
-    url?: string;
-    revised_prompt?: string;
   }>;
 }
 
@@ -180,49 +167,5 @@ export async function* routeChatCompletion(
         }
       }
     }
-  }
-}
-
-export async function generateImage(modelReq: string, prompt: string, sessionId?: string): Promise<ImageResponse> {
-  const provider = config[modelReq];
-
-  if (!provider) {
-    throw new Error(`Model '${modelReq}' not found in providers.json`);
-  }
-
-  if (provider.type === 'cli') {
-    const tempFile = path.join(os.tmpdir(), `rhea-${Math.random().toString(36).slice(2)}.png`);
-    let args = provider.cmd.map(arg => 
-      arg.replace('{prompt}', prompt).replace('{output}', tempFile)
-    );
-    
-    if (sessionId) {
-      args.push('--session', sessionId);
-    }
-    
-    const command = args[0];
-    const cmdArgs = args.slice(1);
-
-    return new Promise((resolve, reject) => {
-      const child = spawn(command, cmdArgs);
-      child.on('close', (code) => {
-        if (code !== 0) {
-          return reject(new Error(`CLI image generation failed with code ${code}`));
-        }
-        if (!fs.existsSync(tempFile)) {
-          return reject(new Error("Image file was not created by CLI"));
-        }
-        const b64 = fs.readFileSync(tempFile, 'base64');
-        fs.unlinkSync(tempFile);
-        
-        resolve({
-          object: "image",
-          created: Math.floor(Date.now() / 1000),
-          data: [{ b64_json: b64 }]
-        });
-      });
-    });
-  } else {
-    throw new Error("API-based image generation not yet implemented in this provider type");
   }
 }

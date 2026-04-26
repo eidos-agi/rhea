@@ -1,15 +1,15 @@
 {
-  "name": "@rhea/mcp",
+  "name": "@rhea/images",
   "version": "1.0.0",
+  "description": "Rhea: High-performance Image Generation Engine",
   "type": "module",
   "license": "CC-BY-NC-SA-4.0",
   "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^0.6.0",
-    "@rhea/lib": "*",
-    "@rhea/images": "*"
+    "@rhea/lib": "*"
   }
 }

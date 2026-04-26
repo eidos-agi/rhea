@@ -21,7 +21,8 @@
   "workspaces": [
     "lib",
     "cli",
-    "mcp"
+    "mcp",
+    "images"
   ],
   "scripts": {
     "build": "npm run build --workspaces",

@@ -19,6 +19,7 @@ import {
   saveSession,
   loadSession
 } from '@rhea/lib';
+import { generateImage } from '@rhea/images';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -59,9 +60,17 @@ Global Flags:
   --server <label>    Target a specific server for a single command
   --help              Show this help message and read documentation
 
+Draw Flags:
+  --output <path>     Required: Where to save the generated image
+  --model <name>      Optional: The logical image model to use (default: draw)
+  --session <id>      Optional: Resume an image editing session
+  --new-session       Optional: Start a fresh tracked session
+  --aspect-ratio <r>  Optional: e.g. 16:9, 1:1, 4:3
+  --size <s|2k|4k>    Optional: e.g. 1k, 2k, 4k
+
 Examples:
   rhea-cli ask "Explain quantum entanglement"
-  rhea-cli draw "A cyberpunk city" --output city.png --new-session
+  rhea-cli draw "A cyberpunk city" --output city.png --new-session --aspect-ratio 16:9
   rhea-cli order primary-vps home-server mac-laptop
   rhea-cli pair my-mac user@mac-host --code B3F2A1
 
@@ -255,6 +264,10 @@ if (command === 'draw') {
   const output = outputIndex > -1 ? args[outputIndex + 1] : null;
   const modelIndex = args.indexOf('--model');
   const model = modelIndex > -1 ? args[modelIndex + 1] : 'draw';
+  const ratioIndex = args.indexOf('--aspect-ratio');
+  const aspectRatio = ratioIndex > -1 ? args[ratioIndex + 1] : undefined;
+  const sizeIndex = args.indexOf('--size');
+  const size = sizeIndex > -1 ? args[sizeIndex + 1] : undefined;
   
   const serverFlagLabel = getActiveServerLabel();
 
@@ -268,6 +281,8 @@ if (command === 'draw') {
     if (i === modelIndex || i === modelIndex + 1) return false;
     if (arg === '--server' || (i > 0 && args[i-1] === '--server')) return false;
     if (i === sessionIndex || i === sessionIndex + 1) return false;
+    if (i === ratioIndex || i === ratioIndex + 1) return false;
+    if (i === sizeIndex || i === sizeIndex + 1) return false;
     if (arg === '--new-session') return false;
     return true;
   });
@@ -286,12 +301,19 @@ if (command === 'draw') {
       const server = serverFlagLabel ? config.servers[serverFlagLabel] : null;
       let response;
 
+      const drawOpts = { 
+        modelReq: model, 
+        prompt, 
+        sessionId: sessionId || undefined,
+        aspectRatio,
+        size
+      };
+
       if (server) {
-        const generator = rpc(server, 'draw', { model, prompt, sessionId });
+        const generator = rpc(server, 'draw', drawOpts);
         for await (const chunk of generator) { response = chunk; }
       } else {
-        const { generateImage } = await import('@rhea/lib');
-        response = await generateImage(model, prompt, sessionId || undefined);
+        response = await generateImage(drawOpts, providers as any);
       }
 
       if (response.data?.[0]?.b64_json) {
