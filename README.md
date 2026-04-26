@@ -28,13 +28,16 @@ Rhea isn't just an orchestrator; it's a momentum engine. It implements our **Pod
 
 This process forces "discontinuous jumps" in reasoning, breaking the local minima of individual models. Rhea turns the "information bottleneck" of language into a tool for escaping the limits of single-model gradient descent.
 
+#### 🛠️ Specialized Coding Pod
+Rhea now includes an expansion for automated software engineering. By using the specialized **Architect / Auditor / Integrator** rotation, Rhea can implement complex code and cross-verify it across multiple models to eliminate "invisible bugs."
+
 <p align="center">
   <img src="https://raw.githubusercontent.com/eidos-agi/rhea/master/assets/rhea-pod.png" alt="Rhea Pod Orchestration" width="800">
 </p>
 
-- **Dreamer**: Performs a "lossy projection" of the problem, expanding the solution space.
-- **Doubter**: Adversarially critiques assumptions to find the "deepest flaw."
-- **Decider**: Weighs the collision and commits to a final, high-confidence decision.
+- **Architect**: Implements the solution with strict types and clean structure.
+- **Auditor**: Adversarially critiques the code for security, performance, and logic errors.
+- **Integrator**: Synthesize the final, verified implementation based on the audit.
 
 ---
 
@@ -69,7 +72,22 @@ Use our interactive wizard to link your providers and pair your mesh:
 rhea-cli setup
 ```
 
-### 3. Leverage Skills
+### 3. Usage
+```bash
+# Ask a question (streams in real-time)
+rhea-cli ask "Explain quantum entanglement"
+
+# Run a Socratic Pod debate
+rhea-cli debate "How should we regulate AGI development?"
+
+# Orchestrate a Coding Pod (Architect / Auditor / Integrator)
+rhea-cli code "Write a TypeScript class to manage a LRU cache with SHA-256 keys"
+
+# Generate high-fidelity images (Nano Banana 3)
+rhea-cli draw "A minimalist representation of momentum" --output logo.png --aspect-ratio 16:9
+```
+
+### 4. Leverage Skills
 Rhea includes specialized agent instructions in the `.skills` directory. Use these skills to guide your AI assistants during deployment:
 - **`rhea-client-install`**: Automated client setup.
 - **`rhea-server-install`**: Automated server setup and hardening.
