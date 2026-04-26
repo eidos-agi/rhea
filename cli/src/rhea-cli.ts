@@ -116,24 +116,26 @@ if (command === 'key') {
         
         console.log("\n🔑 Add an API Key to Rhea");
 
-        // Dynamically find providers that need keys
-        const providersWithKeys = Object.entries(providers as Record<string, any>)
-          .filter(([_, p]) => p.api_key_env)
-          .map(([id, p]) => ({ id, env: p.api_key_env }));
+        // Group by unique API Key Environment variable names
+        const envKeys = new Set<string>();
+        Object.values(providers as Record<string, any>).forEach(p => {
+          if (p.api_key_env) envKeys.add(p.api_key_env);
+        });
+        const sortedEnvKeys = Array.from(envKeys).sort();
 
         if (!name) {
-          console.log("Please select a provider to link this key to:");
-          providersWithKeys.forEach((p, i) => {
-            console.log(`  [${i + 1}] ${p.id} (expects ${p.env})`);
+          console.log("Please select which provider key you want to set:");
+          sortedEnvKeys.forEach((envName, i) => {
+            console.log(`  [${i + 1}] ${envName}`);
           });
-          console.log(`  [${providersWithKeys.length + 1}] Custom Key Name`);
+          console.log(`  [${sortedEnvKeys.length + 1}] Custom Key Name`);
 
           const choice = await ask("\nChoice: ");
           const idx = parseInt(choice) - 1;
 
-          if (idx >= 0 && idx < providersWithKeys.length) {
-            name = providersWithKeys[idx].env;
-          } else if (idx === providersWithKeys.length) {
+          if (idx >= 0 && idx < sortedEnvKeys.length) {
+            name = sortedEnvKeys[idx];
+          } else if (idx === sortedEnvKeys.length) {
             name = await ask("Enter custom key name: ");
           } else {
             console.error("❌ Invalid choice.");
