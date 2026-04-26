@@ -1,0 +1,28 @@
+<svg width="800" height="200" viewBox="0 0 800 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="800" height="200" rx="12" fill="#0A0F1E"/>
+  
+  <!-- Rhea Bird / Logo Mark -->
+  <path d="M60 140C60 140 80 60 120 40C160 20 180 80 140 100C100 120 120 160 120 160" stroke="#00F2FF" stroke-width="4" stroke-linecap="round" filter="url(#glow)"/>
+  
+  <!-- Neural Mesh / Circuit Lines -->
+  <circle cx="120" cy="40" r="4" fill="#00F2FF"/>
+  <circle cx="140" cy="100" r="6" fill="#00F2FF" filter="url(#glow)"/>
+  <circle cx="120" cy="160" r="4" fill="#00F2FF"/>
+  
+  <line x1="120" y1="40" x2="140" y2="100" stroke="#00F2FF" stroke-width="1" stroke-dasharray="4 2"/>
+  <line x1="140" y1="100" x2="120" y2="160" stroke="#00F2FF" stroke-width="1" stroke-dasharray="4 2"/>
+  <line x1="140" y1="100" x2="180" y2="80" stroke="#00F2FF" stroke-width="1" stroke-dasharray="4 2"/>
+  
+  <!-- Text -->
+  <text x="200" y="115" fill="white" font-family="Arial, sans-serif" font-size="72" font-weight="bold" letter-spacing="4">RHEA</text>
+  <text x="202" y="145" fill="#00F2FF" font-family="Arial, sans-serif" font-size="16" font-weight="normal" letter-spacing="8" opacity="0.8">SECURE ORCHESTRATOR</text>
+  
+  <!-- Filters -->
+  <defs>
+    <filter id="glow" x="0" y="0" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+</svg>

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/rhea-banner.svg" alt="Rhea AI Banner" width="800">
+</p>
+
 # Rhea: Your AI Subscriptions, Now Your Private APIs
 
 Rhea is a high-performance orchestration suite that turns your existing, subscription-backed AI CLIs (Claude Pro, Gemini Advanced, Codex) into secure, remote, and always-on APIs. 
