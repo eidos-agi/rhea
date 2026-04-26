@@ -1,0 +1,25 @@
+{
+  "question": "Write a TypeScript function to calculate Fibonacci numbers",
+  "status": "decision",
+  "decision": "function fibonacci(n: number): number {\n  if (n <= 1) return n;\n  return fibonacci(n - 1) + fibonacci(n - 2);\n}",
+  "confidence": "high",
+  "rounds": [
+    {
+      "round": 1,
+      "proposal": "function fib(n) { return n <= 1 ? n : fib(n-1) + fib(n-2); }",
+      "critique": "The code lacks type safety and is inefficient for large n due to recursive overhead.",
+      "decision": {
+        "answer": "function fibonacci(n: number): number {\n  if (n <= 1) return n;\n  return fibonacci(n - 1) + fibonacci(n - 2);\n}",
+        "confident": true
+      },
+      "adversarial": false,
+      "roleMap": {
+        "model-a": "architect",
+        "model-b": "auditor",
+        "model-c": "integrator"
+      }
+    }
+  ],
+  "dissent": [],
+  "rotation_count": 0
+}

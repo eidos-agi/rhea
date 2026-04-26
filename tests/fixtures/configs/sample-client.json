@@ -1,0 +1,14 @@
+{
+  "activeServer": "primary-vps",
+  "servers": {
+    "primary-vps": {
+      "host": "user@vps-host",
+      "token": "test-token-123"
+    },
+    "home-server": {
+      "host": "pi@home-ip",
+      "token": "test-token-456"
+    }
+  },
+  "order": ["primary-vps", "home-server"]
+}

@@ -1,0 +1,15 @@
+{
+  "id": "chatcmpl-123",
+  "object": "chat.completion.chunk",
+  "created": 1677652288,
+  "model": "claude-3-5-sonnet",
+  "choices": [
+    {
+      "index": 0,
+      "delta": {
+        "content": "Quantum"
+      },
+      "finish_reason": null
+    }
+  ]
+}
