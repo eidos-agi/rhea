@@ -15,6 +15,8 @@ Instead of paying for metered tokens every time you build a tool or run an agent
 
 ## 🌟 Key Features
 
+- **Intelligence Pods (Socratic Debate)**: Orchestrate high-fidelity reasoning using the Rhea Pod engine. Run three-model debates (Dreamer/Doubter/Decider) to solve complex problems with built-in skepticism and commitment logic.
+- **Multi-modal Support (Nano Banana)**: Generate and iteratively edit high-resolution images using the Gemini 3.1 Flash Image model series.
 - **Real-time Streaming**: Full token-by-token streaming for instantaneous feedback in the terminal or via SSE.
 - **Smart Context Caching**: SHA-256 hashing saves you time and quota by instantly returning results for repeated prompts.
 - **Simplified Pairing**: Enroll new clients in seconds using 6-character short codes rather than complex keys.
@@ -24,7 +26,7 @@ Instead of paying for metered tokens every time you build a tool or run an agent
 
 ## 📂 Repository Structure
 
-- `lib/`: The shared engine for model routing, configuration, and SSH RPC.
+- `lib/`: The shared engine for model routing, configuration, session persistence, and the Rhea Pod engine.
 - `cli/`: The `rhea-cli` client and `rhea-cli-server` daemon.
 - `mcp/`: The `rhea-mcp` server for MCP-compatible clients and agents.
 
@@ -68,11 +70,18 @@ rhea-cli pair my-mac user@mac-host --code B3F2A1
 rhea-cli ask "Write a long essay on the history of AI"
 ```
 
-**Managing Server Fallback:**
-Set your preferred fallback sequence:
+**Generate an image (Nano Banana):**
 ```bash
-rhea-cli order primary-vps home-server mac-laptop
+rhea-cli draw "A cyberpunk city with neon banana signs" --output city.png --new-session
 ```
+
+**Iteratively edit an image:**
+```bash
+rhea-cli draw "Change the signs to bright green" --output city_v2.png --session <ID>
+```
+
+**Run a Socratic Debate (Pod):**
+Access the `rhea_debate` tool via the integrated MCP server to orchestrate multiple models for complex reasoning tasks.
 
 ---
 
@@ -84,9 +93,23 @@ command="rhea-cli-server rpc",no-pty,no-port-forwarding ssh-ed25519 ...
 
 ---
 
+## 📜 License
+
+Rhea is licensed under **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)**.
+
+- **Attribution**: You must give appropriate credit to Eidos AGI.
+- **Non-Commercial**: You may not use this software for commercial purposes.
+- **No Resale**: You specifically may not re-sell this software or any derivatives of it.
+- **ShareAlike**: Derivatives must be distributed under the same license.
+
+For commercial inquiries, please contact Eidos AGI.
+
+---
+
 ## 🛠️ Configuration
 
 Rhea stores configuration in:
 - `~/.rhea-cli.json` (Profiles and ordering)
 - `~/.rhea-cli-server.json` (Server-side pairing tokens)
 - `~/.rhea-cache/` (Local result cache)
+- `~/.rhea-sessions/` (Persistent conversation history)

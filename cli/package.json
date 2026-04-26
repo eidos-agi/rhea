@@ -2,6 +2,7 @@
   "name": "@rhea/cli",
   "version": "1.0.0",
   "type": "module",
+  "license": "CC-BY-NC-SA-4.0",
   "bin": {
     "rhea-cli": "./dist/rhea-cli.js",
     "rhea-cli-server": "./dist/rhea-cli-server.js"

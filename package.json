@@ -4,6 +4,20 @@
   "description": "Rhea: Secure Remote AI Model Routing Suite",
   "type": "module",
   "private": true,
+  "author": "Eidos AGI",
+  "license": "CC-BY-NC-SA-4.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eidos-agi/rhea.git"
+  },
+  "keywords": [
+    "ai",
+    "mcp",
+    "orchestration",
+    "tailscale",
+    "ssh",
+    "model-routing"
+  ],
   "workspaces": [
     "lib",
     "cli",

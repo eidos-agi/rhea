@@ -2,6 +2,7 @@
   "name": "@rhea/lib",
   "version": "1.0.0",
   "type": "module",
+  "license": "CC-BY-NC-SA-4.0",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
