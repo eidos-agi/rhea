@@ -69,6 +69,29 @@ rhea-cli ask "Explain quantum entanglement"
 rhea-cli list
 ```
 
+**Managing Server Identities:**
+List all paired servers and see which one is active:
+```bash
+rhea-cli servers
+```
+
+Switch your active server:
+```bash
+rhea-cli use vps-cloud
+# ✅ Now using server: vps-cloud
+```
+
+Set a persistent fallback order:
+```bash
+rhea-cli order primary-vps home-server mac-laptop
+# ✅ Server fallback order updated!
+```
+
+Target a specific server for a one-off command (bypasses active server):
+```bash
+rhea-cli ask --server mac-laptop "Explain this code"
+```
+
 **MCP Integration:**
 Configure your MCP client (like Claude Desktop) to run the server:
 ```json

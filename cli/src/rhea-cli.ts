@@ -122,6 +122,28 @@ if (command === 'ask') {
   }
 }
 
+// ---- COMMAND: ORDER ----
+if (command === 'order') {
+  const order = args.slice(1).filter(a => !a.startsWith('-'));
+  if (order.length === 0) {
+    console.log("Usage: rhea-cli order <server1> <server2> ...");
+    process.exit(1);
+  }
+  
+  // Validate all servers exist
+  for (const name of order) {
+    if (!config.servers[name]) {
+      console.error(`❌ Error: Server profile '${name}' not found.`);
+      process.exit(1);
+    }
+  }
+  
+  config.order = order;
+  saveClientConfig(config);
+  console.log(`✅ Server fallback order updated: ${order.join(' -> ')}`);
+  process.exit(0);
+}
+
 // ---- COMMAND: UNPAIR ----
 if (command === 'unpair') {
   const label = args[1];
@@ -162,6 +184,7 @@ if (command === 'list') {
   rhea-cli pair <label> <host> --token <token>
   rhea-cli servers
   rhea-cli use <label>
+  rhea-cli order <server1> <server2> ...
   rhea-cli status [--server <label>]
   rhea-cli unpair <label>
   rhea-cli list [--server <label>]

@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 import http from 'http';
+import crypto from 'crypto';
+import os from 'os';
 import providers from '../../providers.json' with { type: 'json' };
 import { 
   loadServerConfig, 
@@ -16,8 +18,6 @@ let serverConfig = loadServerConfig();
 
 // ---- COMMAND: PAIR CREATE ----
 if (command === 'pair' && args[1] === 'create') {
-  const crypto = require('crypto');
-  const os = require('os');
   const token = `rhea_` + crypto.randomBytes(16).toString('hex');
   const label = args[2] || 'default-client';
   
@@ -83,7 +83,8 @@ if (command === 'daemon') {
         }
       });
     } else if (req.method === 'GET' && req.url === '/v1/models') {
-      const models = Object.keys(providers).map(id => ({ id, object: "model" }));
+      const providersObj = providers as Record<string, any>;
+      const models = Object.keys(providersObj).map(id => ({ id, object: "model" }));
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ object: "list", data: models }));
     } else {
@@ -122,7 +123,8 @@ if (command === 'rpc') {
 
       // 3. Handle LIST
       if (payload.action === 'list') {
-        console.log(JSON.stringify({ models: Object.keys(providers) }));
+        const providersObj = providers as Record<string, any>;
+        console.log(JSON.stringify({ models: Object.keys(providersObj) }));
         process.exit(0);
       }
 
