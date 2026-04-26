@@ -538,9 +538,14 @@ else if (command === 'code') {
     } else if (cleanWord.includes('.') && cleanWord.length > 3) {
       // Try to find the file in subdirectories (limit to 3 levels for speed/safety)
       try {
-        const found = execSync(`find . -maxdepth 3 -name "${cleanWord}" -not -path "*/node_modules/*"`, { encoding: 'utf8' }).trim().split('\n')[0];
-        if (found && fs.existsSync(found)) {
-          foundFiles.add(found);
+        const found = execSync(`find . -maxdepth 3 -name "${cleanWord}" -not -path "*/node_modules/*" -not -path "*/dist/*"`, { encoding: 'utf8' }).trim().split('\n').filter(f => f.length > 0);
+        if (found.length === 1) {
+          foundFiles.add(found[0]);
+        } else if (found.length > 1) {
+          console.error(`❌ Ambiguity Error: Multiple files match '${cleanWord}':`);
+          found.forEach(f => console.error(`   - ${f}`));
+          console.error(`   Please use the full relative path to ensure sovereign precision.`);
+          process.exit(1);
         }
       } catch (e) { /* ignore find errors */ }
     }
