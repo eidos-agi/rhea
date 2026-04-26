@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import fs from 'fs';
 import providers from '../../providers.json' with { type: 'json' };
 import { 
   loadClientConfig, 
@@ -193,6 +194,55 @@ if (command === 'ask') {
   }
 }
 
+// ---- COMMAND: DRAW ----
+if (command === 'draw') {
+  const outputIndex = args.indexOf('--output');
+  const output = outputIndex > -1 ? args[outputIndex + 1] : null;
+  const modelIndex = args.indexOf('--model');
+  const model = modelIndex > -1 ? args[modelIndex + 1] : 'draw';
+  
+  const serverFlagLabel = getActiveServerLabel();
+  
+  let promptArgs = args.filter((arg, i) => {
+    if (i === 0) return false;
+    if (i === outputIndex || i === outputIndex + 1) return false;
+    if (i === modelIndex || i === modelIndex + 1) return false;
+    if (arg === '--server' || (i > 0 && args[i-1] === '--server')) return false;
+    return true;
+  });
+  const prompt = promptArgs.join(' ');
+
+  if (!prompt || !output) {
+    console.error("❌ Error: Prompt and --output path are required for 'draw'.");
+    process.exit(1);
+  }
+
+  (async () => {
+    try {
+      const server = serverFlagLabel ? config.servers[serverFlagLabel] : null;
+      let response;
+
+      if (server) {
+        const generator = rpc(server, 'draw', { model, prompt });
+        for await (const chunk of generator) { response = chunk; }
+      } else {
+        const { generateImage } = await import('@rhea/lib');
+        response = await generateImage(model, prompt);
+      }
+
+      if (response.data?.[0]?.b64_json) {
+        fs.writeFileSync(output, Buffer.from(response.data[0].b64_json, 'base64'));
+        console.log(`🎨 Image saved to: ${output}`);
+      } else {
+        throw new Error("No image data received from server");
+      }
+    } catch (err: any) {
+      console.error(`❌ Draw failed: ${err.message}`);
+      process.exit(1);
+    }
+  })();
+}
+
 // ---- COMMAND: UNPAIR ----
 if (command === 'unpair') {
   const label = args[1];
@@ -237,7 +287,7 @@ if (command === 'list') {
     const providersObj = providers as Record<string, any>;
     Object.keys(providersObj).forEach(m => console.log(`  - ${m}`));
   }
-} else if (!['pair', 'status', 'ask', 'list', 'unpair', 'servers', 'use', 'order', 'cache'].includes(command as string)) {
+} else if (!['pair', 'status', 'ask', 'list', 'unpair', 'servers', 'use', 'order', 'cache', 'draw'].includes(command as string)) {
   console.log(`Usage: 
   rhea-cli pair <label> <host> --token <token>
   rhea-cli pair <label> <host> --code <code>
@@ -245,6 +295,7 @@ if (command === 'list') {
   rhea-cli use <label>
   rhea-cli order <server1> <server2> ...
   rhea-cli status [--server <label>]
+  rhea-cli draw [--server <label>] [--model <model>] --output <path.png> <prompt>
   rhea-cli unpair <label>
   rhea-cli list [--server <label>]
   rhea-cli ask [--server <label>] [--model <model>] [--no-cache] <prompt>

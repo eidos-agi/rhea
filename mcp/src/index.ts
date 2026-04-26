@@ -28,6 +28,35 @@ const server = new Server(
   }
 );
 
+/**
+ * Executes a Rhea prompt through the fallback chain
+ */
+async function executeRheaPrompt(model: string, prompt: string) {
+  const config = loadClientConfig();
+  const orderedServers = getOrderedServers(config);
+  
+  for (const srv of orderedServers) {
+    try {
+      const generator = rpc(srv, 'ask', { model, messages: [{ role: 'user', content: prompt }], stream: false });
+      let finalRes;
+      for await (const chunk of generator) {
+        finalRes = chunk;
+      }
+      return finalRes.choices[0].message.content;
+    } catch (e) {
+      // Fallback to next
+    }
+  }
+
+  // Final local fallback
+  const generator = routeChatCompletion(model, [{ role: 'user', content: prompt }], false);
+  let finalRes;
+  for await (const chunk of generator) {
+    finalRes = chunk;
+  }
+  return (finalRes as any).choices[0].message.content;
+}
+
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
@@ -77,6 +106,19 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             code: { type: "string", description: "The 6-character pairing code from the server" },
           },
           required: ["label", "host", "code"],
+        },
+      },
+      {
+        name: "rhea_draw",
+        description: "Generate an image using Rhea's image models (e.g., Nano Banana).",
+        inputSchema: {
+          type: "object",
+          properties: {
+            prompt: { type: "string", description: "The image description" },
+            output_path: { type: "string", description: "Where to save the resulting image locally" },
+            model: { type: "string", description: "Optional model name", default: "draw" }
+          },
+          required: ["prompt", "output_path"],
         },
       }
     ],
@@ -149,6 +191,44 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       } catch (err: any) {
         return {
           content: [{ type: "text", text: `Pairing failed: ${err.message}` }],
+          isError: true,
+        };
+      }
+    }
+
+    case "rhea_draw": {
+      const { prompt, output_path, model } = request.params.arguments as any;
+      const { generateImage } = await import('@rhea/lib');
+      const fs = await import('fs');
+      
+      try {
+        const orderedServers = getOrderedServers(config);
+        let response;
+        let success = false;
+
+        for (const server of orderedServers) {
+          try {
+            const generator = rpc(server, 'draw', { model: model || 'draw', prompt });
+            for await (const chunk of generator) { response = chunk; }
+            success = true;
+            break;
+          } catch (e) { /* next */ }
+        }
+
+        if (!success) {
+          response = await generateImage(model || 'draw', prompt);
+        }
+
+        if (response.data?.[0]?.b64_json) {
+          fs.writeFileSync(output_path, Buffer.from(response.data[0].b64_json, 'base64'));
+          return {
+            content: [{ type: "text", text: `🎨 Image generated and saved to ${output_path}` }],
+          };
+        }
+        throw new Error("No image data received");
+      } catch (err: any) {
+        return {
+          content: [{ type: "text", text: `Draw failed: ${err.message}` }],
           isError: true,
         };
       }

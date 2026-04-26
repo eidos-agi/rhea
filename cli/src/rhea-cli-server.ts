@@ -183,6 +183,14 @@ if (command === 'rpc') {
         }
         process.exit(0);
       }
+
+      // 5. Handle DRAW
+      if (payload.action === 'draw') {
+        const { generateImage } = await import('@rhea/lib');
+        const response = await generateImage(payload.model, payload.prompt);
+        console.log(JSON.stringify(response));
+        process.exit(0);
+      }
       
     } catch (err: any) {
       console.log(JSON.stringify({ error: { message: err.message } }));
