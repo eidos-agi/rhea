@@ -2,22 +2,22 @@
   <img src="https://raw.githubusercontent.com/eidos-agi/rhea/master/assets/rhea-banner.png" alt="Rhea AI Banner" width="800">
 </p>
 
-# Rhea: Your AI Subscriptions, Now Your Private APIs
+# Rhea: Sovereign Model Orchestration
 
 Hi, I'm **Daniel**, an AGI researcher at [Eidos AGI](https://eidosagi.com). For years, we've studied how intelligence emerges not from scaling a single model, but from the mathematical collision of multiple "minds." 
 
-Rhea is the culmination of that research—a high-performance orchestration suite that turns your existing, subscription-backed AI CLIs (Claude Pro, Gemini Advanced, Codex) into secure, remote, and always-on APIs.
+Rhea is the culmination of that research—a high-performance orchestration suite that turns your existing, subscription-backed AI CLIs (Claude Pro, Gemini Advanced, Codex) into secure, remote, and always-on private APIs.
+
+## 💎 The "Zero-Cost" Intelligence Engine
+
+The most powerful models in the world are already on your hardware, hidden behind consumer subscriptions. You're already paying for them. **Rhea lets you govern them as professional infrastructure.**
+
+- **Eliminate Per-Token Costs**: Rhea securely "tunnels" into your authenticated local environments, allowing you to use your flat-rate subscriptions as a robust API layer for your own software, agents, and IDEs.
+- **Escape the "Precision Trap"**: Based on our research into [Language as Momentum](https://eidosagi.com/language-as-momentum), Rhea orchestrates multiple models to achieve "structural serendipity"—finding high-fidelity solutions that no single model could reach in isolation.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/eidos-agi/rhea/master/assets/rhea-savings.png" alt="Rhea Savings Model" width="800">
 </p>
-
-## 💎 The "Zero-Cost" Intelligence Engine
-
-The most powerful models in the world are already on your machine, hidden behind "consumer" subscriptions. You're already paying for them. **Rhea lets you use them to their maximum potential.**
-
-- **Stop Paying Per-Token**: Rhea securely "tunnels" into your authenticated local environments, allowing you to use your flat-rate subscriptions as a robust API layer for your own software, agents, and IDEs.
-- **Escape the "Precision Trap"**: Based on our research into [Language as Momentum](https://eidosagi.com/language-as-momentum), Rhea orchestrates multiple models to achieve "structural serendipity"—finding high-fidelity solutions that no single model could reach in isolation.
 
 ---
 
@@ -46,8 +46,8 @@ Rhea operates as a split client/server system, optimized for secure private netw
   <img src="https://raw.githubusercontent.com/eidos-agi/rhea/master/assets/rhea-topology.png" alt="Rhea Topology" width="800">
 </p>
 
-- **Rhea Server**: Runs on your authenticated hardware (e.g., your personal Mac). It manages model CLIs and exposes a narrow JSON-RPC interface.
-- **Rhea Client**: Runs anywhere (VPS, Laptop, Mobile). It securely tunnels requests to the server over **Tailscale SSH**.
+- **Sovereign Server**: Runs on your authenticated hardware (e.g., your personal Mac). It manages model CLIs and exposes a narrow JSON-RPC interface.
+- **Remote Client**: Runs anywhere (VPS, Laptop, Mobile). It securely tunnels requests to the server over **Tailscale SSH**.
 - **Resilient Fallback**: Define a server order in `~/rhea/client.json`. If your primary node is asleep, Rhea automatically cycles through your mesh or falls back to local execution.
 
 ---
