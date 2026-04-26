@@ -54,6 +54,8 @@ Rhea operates as a split client/server system, optimized for secure private netw
 
 ## 🚀 Getting Started
 
+Rhea is an **agent-native** suite. We highly encourage using our internal **skills** to automate setup and maintenance.
+
 ### 1. Installation
 ```bash
 npm install
@@ -61,23 +63,17 @@ npm run build
 cd cli && npm link
 ```
 
-### 2. Fast Onboarding
+### 2. Fast Onboarding (Recommended)
 Use our interactive wizard to link your providers and pair your mesh:
 ```bash
 rhea-cli setup
 ```
 
-### 3. Usage
-```bash
-# Ask a question (streams in real-time)
-rhea-cli ask "Explain quantum entanglement"
-
-# Run a Socratic Pod debate
-rhea-cli debate "How should we regulate AGI development?"
-
-# Generate high-fidelity images (Nano Banana 3)
-rhea-cli draw "A minimalist representation of momentum" --output logo.png --aspect-ratio 16:9
-```
+### 3. Leverage Skills
+Rhea includes specialized agent instructions in the `.skills` directory. Use these skills to guide your AI assistants during deployment:
+- **`rhea-client-install`**: Automated client setup.
+- **`rhea-server-install`**: Automated server setup and hardening.
+- **`rhea-pairing`**: Troubleshooting and managing secure server identities.
 
 ---
 
