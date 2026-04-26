@@ -58,14 +58,16 @@ export class Pod {
       timeLimit?: number;
       clarification?: string;
       resumeState?: any;
+      mode?: 'general' | 'code';
     } = {}
   ): Promise<PodResult> {
     const {
       context = "",
-      maxRounds = 3,
+      maxRounds = (options.mode === 'code' ? 1 : 3),
       timeLimit = 300,
       clarification = "",
-      resumeState = null
+      resumeState = null,
+      mode = 'general'
     } = options;
 
     let rounds: PodRound[] = [];
@@ -84,12 +86,12 @@ export class Pod {
       const elapsed = (Date.now() - startTime) / 1000;
       if (elapsed >= timeLimit) break;
 
-      // 1. Dreamer proposes
-      const proposal = await this.runRole("dreamer", question, currentContext, rounds);
+      // 1. Dreamer / Architect
+      const proposal = await this.runRole(mode === 'code' ? "architect" : "dreamer", question, currentContext, rounds, { mode });
 
-      // 2. Doubter critiques
+      // 2. Doubter / Auditor
       const forceAdversarial = Math.random() < this.adversarialRate;
-      const critique = await this.runRole("doubter", question, currentContext, rounds, { proposal, adversarial: forceAdversarial });
+      const critique = await this.runRole(mode === 'code' ? "auditor" : "doubter", question, currentContext, rounds, { proposal, adversarial: forceAdversarial, mode });
 
       // Check for clarification
       if (critique.trim().startsWith("CLARIFICATION NEEDED:")) {
@@ -106,8 +108,8 @@ export class Pod {
         return this.buildClarificationResult(rounds, clarificationQuestion);
       }
 
-      // 3. Decider rules
-      const rawDecision = await this.runRole("decider", question, currentContext, rounds, { proposal, critique });
+      // 3. Decider / Integrator
+      const rawDecision = await this.runRole(mode === 'code' ? "integrator" : "decider", question, currentContext, rounds, { proposal, critique, mode });
       const decision = this.parseDeciderResponse(rawDecision);
 
       rounds.push({
@@ -119,7 +121,7 @@ export class Pod {
         roleMap: this.getRoleMap()
       });
 
-      if (decision.confident) break;
+      if (decision.confident || mode === 'code') break;
 
       this.rotate();
     }
@@ -132,23 +134,31 @@ export class Pod {
     question: string, 
     context: string, 
     history: PodRound[],
-    opts: { proposal?: string, critique?: string, adversarial?: boolean } = {}
+    opts: { proposal?: string, critique?: string, adversarial?: boolean, mode?: 'general' | 'code' } = {}
   ): Promise<string> {
-    const system = getRolePrompt(role, opts.adversarial);
+    let system = "";
+    if (opts.mode === 'code') {
+      if (role === 'architect') system = "ROLE: ARCHITECT. Task: Implement the following code requirement. Produce full, clean, and typed code. No omissions. No placeholders. Ensure best practices.";
+      else if (role === 'auditor') system = "ROLE: AUDITOR. Task: Find bugs, security flaws, performance issues, and logic errors in the provided code implementation. Be adversarial and meticulous.";
+      else if (role === 'integrator') system = "ROLE: INTEGRATOR. Task: Synthesize the final implementation. Address all points from the AUDITOR's critique and apply necessary fixes to the ARCHITECT's code. Output the final, verified, and complete code block.";
+    } else {
+      system = getRolePrompt(role, opts.adversarial);
+    }
+    
     let userContent = "";
 
-    if (role === "dreamer") {
+    if (role === "dreamer" || role === "architect") {
       userContent = `Question: ${question}`;
-    } else if (role === "doubter") {
-      userContent = `Original question: ${question}\n\nDreamer's proposal:\n${opts.proposal}`;
-    } else if (role === "decider") {
-      userContent = `Original question: ${question}\n\nDreamer's proposal:\n${opts.proposal}\n\nDoubter's critique:\n${opts.critique}`;
+    } else if (role === "doubter" || role === "auditor") {
+      userContent = `Original question: ${question}\n\nProposed implementation:\n${opts.proposal}`;
+    } else if (role === "decider" || role === "integrator") {
+      userContent = `Original question: ${question}\n\nInitial code:\n${opts.proposal}\n\nCritique and vulnerabilities found:\n${opts.critique}`;
     }
 
     if (context) userContent += `\n\nContext: ${context}`;
     if (history.length > 0) userContent += `\n\nPrevious rounds:\n${this.formatHistory(history)}`;
 
-    const modelReq = this.modelNames[this.roles.indexOf(role)] || this.modelNames[0];
+    const modelReq = this.modelNames[this.roles.indexOf(role === 'architect' ? 'dreamer' : role === 'auditor' ? 'doubter' : role === 'integrator' ? 'decider' : role)] || this.modelNames[0];
     const messages: Message[] = [{ role: "user", content: userContent }];
 
     // Execution with Fallback

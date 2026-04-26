@@ -62,6 +62,7 @@ Commands:
   order       Set a persistent fallback order for servers
   status      Check connectivity to a server
   debate      Run a multi-model Socratic debate (Intelligence Pod)
+  code        Orchestrate automated code generation and verification
   list        List available models (local or remote)
   cache       Manage the local prompt cache
   key         Manage API keys in the secure keystore
@@ -87,6 +88,7 @@ Draw Flags:
 Examples:
   rhea-cli ask "Explain quantum entanglement"
   rhea-cli debate "Should we build a Dyson sphere?"
+  rhea-cli code "Write a Rust function to calculate the Fibonacci sequence safely"
   rhea-cli draw "A cyberpunk city" --output city.png --new-session --aspect-ratio 16:9
   rhea-cli order primary-vps home-server mac-laptop
   rhea-cli pair my-mac user@mac-host --code B3F2A1
@@ -508,6 +510,40 @@ else if (command === 'list') {
     Object.keys(providers).forEach(m => console.log(`  - ${m}`));
     process.exit(0);
   }
+}
+
+else if (command === 'code') {
+  const modelArgsIndex = args.indexOf('--models');
+  const models = modelArgsIndex > -1 ? args[modelArgsIndex + 1].split(',') : undefined;
+  let promptArgs = args.filter((arg, i) => {
+    if (i === 0) return false;
+    if (i === modelArgsIndex || i === modelArgsIndex + 1) return false;
+    if (arg === '--server' || (i > 0 && args[i-1] === '--server')) return false;
+    return true;
+  });
+  const requirement = promptArgs.join(' ');
+
+  (async () => {
+    const { Pod } = await import('@rhea/lib');
+    const availableModels = Object.keys(providers).filter(m => m !== 'draw');
+    const pod = new Pod(models || availableModels.slice(0, 3), config);
+    try {
+      console.log("🛠️  Rhea is orchestrating implementation and audit...\n");
+      const result = await pod.debate(requirement, { mode: 'code' });
+      
+      const lastRound = result.rounds[result.rounds.length - 1];
+      console.log("--- 💎 ARCHITECT PROPOSAL ---");
+      console.log(lastRound.proposal.slice(0, 300) + "...");
+      console.log("\n--- 🤔 AUDITOR CRITIQUE ---");
+      console.log(lastRound.critique.slice(0, 300) + "...");
+      console.log("\n--- 🏆 FINAL VERIFIED CODE ---");
+      console.log(result.decision);
+      process.exit(0);
+    } catch (err: any) {
+      console.error(`❌ Coding orchestration failed: ${err.message}`);
+      process.exit(1);
+    }
+  })();
 }
 
 else if (command === 'unpair') {
