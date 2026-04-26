@@ -91,7 +91,7 @@ Examples:
 ---
 DOCUMENTATION (README.md):
 ---
-\${readme.split('## 🚀 Getting Started')[0]}
+${readme.split('## 🚀 Getting Started')[0]}
   `);
 }
 
@@ -124,9 +124,9 @@ if (command === 'key') {
         if (!name) {
           console.log("Please select a provider to link this key to:");
           providersWithKeys.forEach((p, i) => {
-            console.log(`  [\${i + 1}] \${p.id} (expects \${p.env})`);
+            console.log(`  [${i + 1}] ${p.id} (expects ${p.env})`);
           });
-          console.log(`  [\${providersWithKeys.length + 1}] Custom Key Name`);
+          console.log(`  [${providersWithKeys.length + 1}] Custom Key Name`);
 
           const choice = await ask("\nChoice: ");
           const idx = parseInt(choice) - 1;
@@ -143,7 +143,7 @@ if (command === 'key') {
         }
 
         if (!value) {
-          value = await ask(`Enter value for \${name}: `);
+          value = await ask(`Enter value for ${name}: `);
         }
         rl.close();
       }
@@ -151,23 +151,23 @@ if (command === 'key') {
       if (name && value) {
         keys[name] = value;
         saveKeys(keys);
-        console.log(`✅ Key for \${name} saved to secure keystore.`);
+        console.log(`✅ Key for ${name} saved to secure keystore.`);
       } else {
         console.error("❌ Error: Both name and value are required.");
       }
     } else if (subCommand === 'list') {
       console.log("Configured Keys:");
       for (const name of Object.keys(keys)) {
-        console.log(`  - \${name}: ************`);
+        console.log(`  - ${name}: ************`);
       }
     } else if (subCommand === 'remove') {
       const name = args[2];
       if (keys[name]) {
         delete keys[name];
         saveKeys(keys);
-        console.log(`✅ Key '\${name}' removed.`);
+        console.log(`✅ Key '${name}' removed.`);
       } else {
-        console.error(`❌ Key '\${name}' not found.`);
+        console.error(`❌ Key '${name}' not found.`);
       }
     } else {
       console.log("Usage: rhea-cli key [set|list|remove]");
@@ -185,10 +185,10 @@ if (command === 'doctor') {
     const binaries = ['claude', 'gemini', 'ssh'];
     for (const bin of binaries) {
       try {
-        execSync(`which \${bin}`, { stdio: 'ignore' });
-        console.log(`✅ \${bin.padEnd(10)} : Installed`);
+        execSync(`which ${bin}`, { stdio: 'ignore' });
+        console.log(`✅ ${bin.padEnd(10)} : Installed`);
       } catch (e) {
-        console.warn(`⚠️ \${bin.padEnd(10)} : NOT FOUND (Some features will be limited)`);
+        console.warn(`⚠️ ${bin.padEnd(10)} : NOT FOUND (Some features will be limited)`);
       }
     }
 
@@ -197,8 +197,8 @@ if (command === 'doctor') {
     const requiredKeys = ['OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'STABILITY_API_KEY', 'FAL_KEY'];
     console.log("\nSecrets:");
     for (const key of requiredKeys) {
-      if (keys[key]) console.log(`✅ \${key.padEnd(20)} : Configured`);
-      else console.log(`⚪ \${key.padEnd(20)} : Not set`);
+      if (keys[key]) console.log(`✅ ${key.padEnd(20)} : Configured`);
+      else console.log(`⚪ ${key.padEnd(20)} : Not set`);
     }
 
     // 3. Check servers
@@ -207,9 +207,9 @@ if (command === 'doctor') {
       try {
         const generator = rpc(server, 'ping');
         for await (const _ of generator) { /* ping */ }
-        console.log(`✅ \${name.padEnd(15)} : Online (\${server.host})`);
+        console.log(`✅ ${name.padEnd(15)} : Online (${server.host})`);
       } catch (e: any) {
-        console.log(`❌ \${name.padEnd(15)} : Offline - \${e.message}`);
+        console.log(`❌ ${name.padEnd(15)} : Offline - ${e.message}`);
       }
     }
 
@@ -266,7 +266,7 @@ if (command === 'setup') {
       const host = await ask("Enter server host (e.g. user@mac-host): ");
       const code = await ask("Enter 6-char pairing code from the server: ");
       
-      console.log(`Pairing with \${label}...`);
+      console.log(`Pairing with ${label}...`);
       try {
         const tempServer = { host, token: "" };
         const generator = rpc(tempServer, 'exchange-code', { code });
@@ -276,9 +276,9 @@ if (command === 'setup') {
         config.servers[label] = { host, token: result.token };
         config.activeServer = label;
         saveClientConfig(config);
-        console.log(`✅ Successfully paired with \${label}`);
+        console.log(`✅ Successfully paired with ${label}`);
       } catch (err: any) {
-        console.error(`❌ Pairing failed: \${err.message}`);
+        console.error(`❌ Pairing failed: ${err.message}`);
       }
     }
 
@@ -305,7 +305,7 @@ if (command === 'pair' && !['setup'].includes(command)) { // Handled separately 
 
   (async () => {
     if (code) {
-      console.log(`Exchanging code \${code} for token...`);
+      console.log(`Exchanging code ${code} for token...`);
       // Manual SSH RPC for exchange (bypasses getActiveServer)
       try {
         const tempServer: ServerProfile = { host, token: '' }; // No token yet
@@ -317,7 +317,7 @@ if (command === 'pair' && !['setup'].includes(command)) { // Handled separately 
         token = result.token;
         console.log("✅ Code exchanged successfully.");
       } catch (err: any) {
-        console.error(`❌ Failed to exchange code: \${err.message}`);
+        console.error(`❌ Failed to exchange code: ${err.message}`);
         process.exit(1);
       }
     }
@@ -327,8 +327,8 @@ if (command === 'pair' && !['setup'].includes(command)) { // Handled separately 
       if (!config.activeServer) config.activeServer = label;
       saveClientConfig(config);
 
-      console.log(`✅ Server profile '\${label}' paired and saved.`);
-      console.log(`To use this server: rhea-cli use \${label}`);
+      console.log(`✅ Server profile '${label}' paired and saved.`);
+      console.log(`To use this server: rhea-cli use ${label}`);
     }
     process.exit(0);
   })();
@@ -342,7 +342,7 @@ if (command === 'servers') {
   }
   for (const name of Object.keys(config.servers)) {
     const activeMark = name === config.activeServer ? "*" : " ";
-    console.log(`\${activeMark} \${name} (\${config.servers[name].host})`);
+    console.log(`${activeMark} ${name} (${config.servers[name].host})`);
   }
   process.exit(0);
 }
@@ -351,12 +351,12 @@ if (command === 'servers') {
 if (command === 'use') {
   const label = args[1];
   if (!config.servers[label]) {
-    console.error(`❌ Error: Server profile '\${label}' does not exist.`);
+    console.error(`❌ Error: Server profile '${label}' does not exist.`);
     process.exit(1);
   }
   config.activeServer = label;
   saveClientConfig(config);
-  console.log(`✅ Now using server: \${label}`);
+  console.log(`✅ Now using server: ${label}`);
   process.exit(0);
 }
 
@@ -371,14 +371,14 @@ if (command === 'order') {
   // Validate all servers exist
   for (const name of order) {
     if (!config.servers[name]) {
-      console.error(`❌ Error: Server profile '\${name}' not found.`);
+      console.error(`❌ Error: Server profile '${name}' not found.`);
       process.exit(1);
     }
   }
   
   config.order = order;
   saveClientConfig(config);
-  console.log(`✅ Server fallback order updated: \${order.join(' -> ')}`);
+  console.log(`✅ Server fallback order updated: ${order.join(' -> ')}`);
   process.exit(0);
 }
 
@@ -393,8 +393,8 @@ if (command === 'status') {
     process.exit(0);
   }
 
-  console.log(`Server:      \${label}`);
-  console.log(`Host:        \${server.host}`);
+  console.log(`Server:      ${label}`);
+  console.log(`Host:        ${server.host}`);
   console.log(`Transport:   SSH over Tailscale`);
   
   (async () => {
@@ -406,7 +406,7 @@ if (command === 'status') {
       }
       console.log(`Reachability: Online`);
       console.log(`Pairing:      Valid`);
-      console.log(`Version:      \${result.version}`);
+      console.log(`Version:      ${result.version}`);
     } catch (err: any) {
       if (err.message.includes("Server offline")) {
         console.log(`Reachability: Offline`);
@@ -415,7 +415,7 @@ if (command === 'status') {
         console.log(`Reachability: Online`);
         console.log(`Pairing:      Invalid / Revoked`);
       } else {
-        console.log(`Reachability: Error - \${err.message}`);
+        console.log(`Reachability: Error - ${err.message}`);
       }
     }
   })();
@@ -497,8 +497,8 @@ if (command === 'draw') {
 
   (async () => {
     try {
-      if (sessionId && newSession) console.log(`🆕 Starting new session: \${sessionId}`);
-      else if (sessionId) console.log(`💬 Using session: \${sessionId}`);
+      if (sessionId && newSession) console.log(`🆕 Starting new session: ${sessionId}`);
+      else if (sessionId) console.log(`💬 Using session: ${sessionId}`);
 
       const server = serverFlagLabel ? config.servers[serverFlagLabel] : null;
       let response;
@@ -520,13 +520,13 @@ if (command === 'draw') {
 
       if (response.data?.[0]?.b64_json) {
         fs.writeFileSync(output, Buffer.from(response.data[0].b64_json, 'base64'));
-        console.log(`🎨 Image saved to: \${output}`);
-        if (sessionId) console.log(`🔗 Session ID: \${sessionId} (use with --session to edit)`);
+        console.log(`🎨 Image saved to: ${output}`);
+        if (sessionId) console.log(`🔗 Session ID: ${sessionId} (use with --session to edit)`);
       } else {
         throw new Error("No image data received from server");
       }
     } catch (err: any) {
-      console.error(`❌ Draw failed: \${err.message}`);
+      console.error(`❌ Draw failed: ${err.message}`);
       process.exit(1);
     }
   })();
@@ -545,9 +545,9 @@ if (command === 'unpair') {
       config.activeServer = Object.keys(config.servers)[0] || null;
     }
     saveClientConfig(config);
-    console.log(`🔌 Unpaired server '\${label}'.`);
+    console.log(`🔌 Unpaired server '${label}'.`);
   } else {
-    console.error(`❌ Error: Server profile '\${label}' not found.`);
+    console.error(`❌ Error: Server profile '${label}' not found.`);
   }
   process.exit(0);
 }
@@ -570,9 +570,9 @@ if (command === 'list') {
         const res = await fetch("https://openrouter.ai/api/v1/models?output_modalities=image");
         const data = await res.json() as any;
         console.log("Available OpenRouter Image Models:");
-        data.data.forEach((m: any) => console.log(`  - \${m.id} (\${m.name})`));
+        data.data.forEach((m: any) => console.log(`  - ${m.id} (${m.name})`));
       } catch (err: any) {
-        console.error(`❌ Discovery failed: \${err.message}`);
+        console.error(`❌ Discovery failed: ${err.message}`);
       }
     })();
   } else if (server) {
@@ -583,8 +583,8 @@ if (command === 'list') {
         for await (const chunk of generator) {
           result = chunk;
         }
-        console.log(`Models available on \${label} (\${server.host}):`);
-        result.models.forEach((m: string) => console.log(`  - \${m}`));
+        console.log(`Models available on ${label} (${server.host}):`);
+        result.models.forEach((m: string) => console.log(`  - ${m}`));
       } catch (err: any) {
         console.error(err.message);
       }
@@ -592,7 +592,7 @@ if (command === 'list') {
   } else {
     console.log("Available local models:");
     const providersObj = providers as Record<string, any>;
-    Object.keys(providersObj).forEach(m => console.log(`  - \${m}`));
+    Object.keys(providersObj).forEach(m => console.log(`  - ${m}`));
   }
 } else if (!['pair', 'status', 'ask', 'list', 'unpair', 'servers', 'use', 'order', 'cache', 'draw', 'key', 'doctor', 'setup'].includes(command as string)) {
   showHelp();
@@ -602,8 +602,8 @@ async function runQuery(model: string, prompt: string, opts: { noCache?: boolean
   const history = opts.sessionId ? loadSession(opts.sessionId) : [];
   const messages = [...history, { role: 'user', content: prompt }];
   
-  if (opts.sessionId && !history.length) console.log(`🆕 Starting new session: \${opts.sessionId}`);
-  else if (opts.sessionId) console.log(`💬 Resuming session: \${opts.sessionId}`);
+  if (opts.sessionId && !history.length) console.log(`🆕 Starting new session: ${opts.sessionId}`);
+  else if (opts.sessionId) console.log(`💬 Resuming session: ${opts.sessionId}`);
 
   const cacheKey = getCacheKey(model, messages);
   
@@ -640,11 +640,11 @@ async function runQuery(model: string, prompt: string, opts: { noCache?: boolean
       if (opts.sessionId) {
         messages.push({ role: 'assistant', content: finalContent });
         saveSession(opts.sessionId, messages);
-        console.log(`🔗 Session ID: \${opts.sessionId}`);
+        console.log(`🔗 Session ID: ${opts.sessionId}`);
       }
       return;
     } catch (err: any) {
-      console.error(`❌ Error on targeted server \${labelOverride}: \${err.message}`);
+      console.error(`❌ Error on targeted server ${labelOverride}: ${err.message}`);
       process.exit(1);
     }
   }
@@ -659,11 +659,11 @@ async function runQuery(model: string, prompt: string, opts: { noCache?: boolean
       if (opts.sessionId) {
         messages.push({ role: 'assistant', content: finalContent });
         saveSession(opts.sessionId, messages);
-        console.log(`🔗 Session ID: \${opts.sessionId}`);
+        console.log(`🔗 Session ID: ${opts.sessionId}`);
       }
       return;
     } catch (err: any) {
-      console.warn(`⚠️ Server \${server.name} failed/offline, trying next...`);
+      console.warn(`⚠️ Server ${server.name} failed/offline, trying next...`);
     }
   }
 
@@ -675,11 +675,11 @@ async function runQuery(model: string, prompt: string, opts: { noCache?: boolean
     if (opts.sessionId) {
       messages.push({ role: 'assistant', content: finalContent });
       saveSession(opts.sessionId, messages);
-      console.log(`🔗 Session ID: \${opts.sessionId}`);
+      console.log(`🔗 Session ID: ${opts.sessionId}`);
     }
   } catch (err: any) {
     console.error(`❌ All servers and local execution failed.`);
-    console.error(`   Last error: \${err.message}`);
+    console.error(`   Last error: ${err.message}`);
     process.exit(1);
   }
 }
