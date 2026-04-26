@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/rhea-banner.png" alt="Rhea AI Banner" width="800">
+  <img src="https://raw.githubusercontent.com/eidos-agi/rhea/master/assets/rhea-banner.png" alt="Rhea AI Banner" width="800">
 </p>
 
 # Rhea: Your AI Subscriptions, Now Your Private APIs
@@ -9,7 +9,7 @@ Hi, I'm **Daniel**, an AGI researcher at [Eidos AGI](https://eidosagi.com). For 
 Rhea is the culmination of that research—a high-performance orchestration suite that turns your existing, subscription-backed AI CLIs (Claude Pro, Gemini Advanced, Codex) into secure, remote, and always-on APIs.
 
 <p align="center">
-  <img src="assets/rhea-savings.png" alt="Rhea Savings Model" width="800">
+  <img src="https://raw.githubusercontent.com/eidos-agi/rhea/master/assets/rhea-savings.png" alt="Rhea Savings Model" width="800">
 </p>
 
 ## 💎 The "Zero-Cost" Intelligence Engine
@@ -29,7 +29,7 @@ Rhea isn't just an orchestrator; it's a momentum engine. It implements our **Pod
 This process forces "discontinuous jumps" in reasoning, breaking the local minima of individual models. Rhea turns the "information bottleneck" of language into a tool for escaping the limits of single-model gradient descent.
 
 <p align="center">
-  <img src="assets/rhea-pod.png" alt="Rhea Pod Orchestration" width="800">
+  <img src="https://raw.githubusercontent.com/eidos-agi/rhea/master/assets/rhea-pod.png" alt="Rhea Pod Orchestration" width="800">
 </p>
 
 - **Dreamer**: Performs a "lossy projection" of the problem, expanding the solution space.
@@ -43,7 +43,7 @@ This process forces "discontinuous jumps" in reasoning, breaking the local minim
 Rhea operates as a split client/server system, optimized for secure private networks.
 
 <p align="center">
-  <img src="assets/rhea-topology.png" alt="Rhea Topology" width="800">
+  <img src="https://raw.githubusercontent.com/eidos-agi/rhea/master/assets/rhea-topology.png" alt="Rhea Topology" width="800">
 </p>
 
 - **Rhea Server**: Runs on your authenticated hardware (e.g., your personal Mac). It manages model CLIs and exposes a narrow JSON-RPC interface.
