@@ -4,65 +4,45 @@
 
 # Rhea: Your AI Subscriptions, Now Your Private APIs
 
-Rhea is a high-performance orchestration suite that turns your existing, subscription-backed AI CLIs (Claude Pro, Gemini Advanced, Codex) into secure, remote, and always-on APIs. 
+Hi, I'm **Daniel**, an AGI researcher at [Eidos AGI](https://eidosagi.com). For years, we've studied how intelligence emerges not from scaling a single model, but from the mathematical collision of multiple "minds." 
 
-Instead of paying for metered tokens every time you build a tool or run an agent, Rhea lets you securely "tunnel" into your authenticated local environments and subscriptions from any device, anywhere.
+Rhea is the culmination of that research—a high-performance orchestration suite that turns your existing, subscription-backed AI CLIs (Claude Pro, Gemini Advanced, Codex) into secure, remote, and always-on APIs.
+
+## 💎 The "Zero-Cost" Intelligence Engine
+
+The most powerful models in the world are already on your machine, hidden behind "consumer" subscriptions. You're already paying for them. **Rhea lets you use them to their maximum potential.**
+
+- **Stop Paying Per-Token**: Rhea securely "tunnels" into your authenticated local environments, allowing you to use your flat-rate subscriptions as a robust API layer for your own software, agents, and IDEs.
+- **Escape the "Precision Trap"**: Based on our research into [Language as Momentum](https://eidosagi.com/language-as-momentum), Rhea orchestrates multiple models to achieve "structural serendipity"—finding high-fidelity solutions that no single model could reach in isolation.
 
 <p align="center">
   <img src="assets/rhea-savings.svg" alt="Rhea Savings Model" width="800">
 </p>
-
-## 💎 Core Value Proposition
-
-- **Zero-Cost APIs**: Stop paying per-token. Rhea utilizes your existing flat-rate subscriptions to provide a robust API layer for your own software.
-- **Secure "Compute Tunneling"**: Run heavy or authenticated CLI tools on your powerful hardware (Mac, Cloud VM, Home Server) and query them remotely over an encrypted **Tailscale SSH** connection.
-- **Multi-Provider Image Support**: Use **DALL-E 3**, **Stable Diffusion 3**, or **Flux 2** alongside **Nano Banana 2** (Gemini Image) through a unified interface.
-- **Agent Orchestration (MCP)**: Expose your subscriptions as tools to any Model Context Protocol (MCP) client, giving agents direct access to your private model infrastructure.
-- **Resilient Reliability**: Define a fallback chain across multiple servers. If your primary node is asleep, Rhea automatically falls back to your secondary nodes or local execution.
-
----
-
-## 🛠️ Architecture
-
-Rhea operates as a split client/server system, optimized for secure private networks.
-
-<p align="center">
-  <img src="assets/rhea-topology.svg" alt="Rhea Topology" width="800">
-</p>
-
-- **Rhea Server**: Runs on your authenticated machine (e.g., your personal Mac). It manages the model CLIs and exposes a narrow JSON-RPC interface.
-- **Rhea Client**: Runs anywhere (VPS, Laptop, Mobile). It securely tunnels requests to the server over Tailscale SSH.
 
 ---
 
 ## 🌟 Key Features
 
 ### Intelligence Pods (Socratic Debate)
-Orchestrate high-fidelity reasoning using the Rhea Pod engine. Run three-model debates (Dreamer/Doubter/Decider) to solve complex problems with built-in skepticism and commitment logic.
+Rhea implements our "Pod" architecture: a three-model Socratic debate engine (Dreamer/Doubter/Decider). This is more than just a loop; it is a mathematical necessity for escaping the logical "local minima" of single models. 
 
 <p align="center">
   <img src="assets/rhea-pod.svg" alt="Rhea Pod Orchestration" width="800">
 </p>
 
-- **Dreamer**: Expands the solution space with creative proposals.
-- **Doubter**: Adversarially critiques assumptions and finds edge cases.
-- **Decider**: Weighs the debate and commits to a final, structured decision.
+- **Dreamer**: Performs a "lossy projection" of the problem, expanding the solution space.
+- **Doubter**: Adversarially critiques assumptions to find the "deepest flaw."
+- **Decider**: Weighs the collision and commits to a final, high-confidence decision.
 
-### Multi-modal Support
-Generate and iteratively edit images using the Gemini 3.1 Flash Image (Nano Banana) model series or cloud APIs.
+### Multi-modal Support (Nano Banana)
+Generate and iteratively edit high-resolution images using the Gemini 3.1 Flash Image model series or cloud APIs, all managed through your secure Rhea tunnel.
 
-### Real-time Streaming & Caching
-- **Streaming**: Full token-by-token streaming for instantaneous feedback.
-- **Caching**: SHA-256 hashing saves you time and quota by instantly returning results for repeated prompts.
+### Secure "Compute Tunneling"
+Run your heavy or authenticated tools on your powerful hardware (Mac, Cloud VM) and query them remotely over an encrypted **Tailscale SSH** connection.
 
----
-
-## 📂 Repository Structure
-
-- `lib/`: The shared engine for model routing, configuration, and session persistence.
-- `images/`: Dedicated high-performance image generation engine supporting multiple providers.
-- `cli/`: The `rhea-cli` client and `rhea-cli-server` daemon.
-- `mcp/`: The `rhea-mcp` server for MCP-compatible clients and agents.
+<p align="center">
+  <img src="assets/rhea-topology.svg" alt="Rhea Topology" width="800">
+</p>
 
 ---
 
@@ -70,71 +50,40 @@ Generate and iteratively edit images using the Gemini 3.1 Flash Image (Nano Bana
 
 ### 1. Installation
 
-Build the suite from source:
 ```bash
 npm install
 npm run build
+cd cli && npm link
 ```
 
-Link the binaries for global use:
+### 2. Quick Setup
+Use our interactive wizard to link your providers and pair your first server:
 ```bash
-cd cli
-npm link
+rhea-cli setup
 ```
 
-### 2. Server Setup (e.g., on your Mac or Cloud VM)
-
-Ensure you are authenticated in your chosen model CLIs (e.g., `claude login`), then generate a pairing code:
+### 3. Usage
 ```bash
-rhea-cli-server pair code "My-VPS"
-# 🎫 Pairing Code: B3F2A1
-```
-
-### 3. Client Pairing
-
-Pair your remote client using the generated code:
-```bash
-rhea-cli pair my-mac user@mac-host --code B3F2A1
-```
-
-### 4. Usage
-
-**Ask a question (streams in real-time):**
-```bash
+# Ask a question (streams in real-time)
 rhea-cli ask "Explain quantum entanglement"
-```
 
-**Generate an image (Nano Banana):**
-```bash
-rhea-cli draw "A cyberpunk city" --output city.png --aspect-ratio 16:9 --size 2k
+# Generate an image
+rhea-cli draw "A majestic Rhea bird" --output bird.png --aspect-ratio 16:9
 ```
 
 ---
 
-## 🛡️ Security Note
-All traffic is encrypted via **Tailscale/WireGuard**. For maximum security, restrict your server's `authorized_keys`:
-```text
-command="rhea-cli-server rpc",no-pty,no-port-forwarding ssh-ed25519 ...
-```
+## 🛡️ Security & Privacy
+All traffic is encrypted via **Tailscale/WireGuard**. Rhea is designed for **Least Privilege**, running via narrow RPC commands rather than a broad shell.
 
 ---
 
 ## 📜 License
-
 Rhea is licensed under **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)**.
-
-- **Attribution**: You must give appropriate credit to Eidos AGI.
-- **Non-Commercial**: You may not use this software for commercial purposes.
-- **No Resale**: You specifically may not re-sell this software or any derivatives of it.
-
-For commercial inquiries, please contact Eidos AGI.
+*Attribution to Eidos AGI and Daniel is required. Commercial resale is strictly prohibited.*
 
 ---
 
-## 🛠️ Configuration
-
-Rhea stores all persistent state in your home directory at `~/rhea/`:
-- `~/rhea/client.json`: Remote server profiles and fallback ordering.
-- `~/rhea/server.json`: Server-side pairing tokens and authorized clients.
-- `~/rhea/cache/`: Local context cache (SHA-256 hashed).
-- `~/rhea/sessions/`: Persistent multi-turn conversation history.
+## 🔬 Read the Research
+If you want to understand the math behind why Rhea works, read our full study:
+[**Language as Momentum: Escaping the Precision Trap**](https://eidosagi.com/language-as-momentum)
