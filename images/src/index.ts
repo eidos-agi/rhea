@@ -82,6 +82,8 @@ async function handleApiImage(options: ImageGenerationOptions, provider: ImageAp
   switch (provider.api_type) {
     case 'openai':
       return callOpenAI(prompt, apiKey, provider.upstream_model, size);
+    case 'openrouter':
+      return callOpenRouter(prompt, apiKey, provider.upstream_model, size);
     case 'stability':
       return callStability(prompt, apiKey, provider.upstream_model, aspectRatio);
     case 'fal':
@@ -104,6 +106,27 @@ async function callOpenAI(prompt: string, apiKey: string, model: string, size?: 
     })
   });
   if (!response.ok) throw new Error(`OpenAI API error: ${response.status} ${await response.text()}`);
+  return await response.json();
+}
+
+async function callOpenRouter(prompt: string, apiKey: string, model: string, size?: string): Promise<ImageResponse> {
+  const response = await fetch("https://openrouter.ai/api/v1/images/generations", {
+    method: 'POST',
+    headers: { 
+      'Content-Type': 'application/json', 
+      'Authorization': `Bearer ${apiKey}`,
+      'HTTP-Referer': 'https://github.com/eidos-agi/rhea',
+      'X-Title': 'Rhea AI Orchestrator'
+    },
+    body: JSON.stringify({
+      model,
+      prompt,
+      n: 1,
+      size: size === '2k' ? '1024x1792' : (size || '1024x1024'),
+      response_format: 'b64_json'
+    })
+  });
+  if (!response.ok) throw new Error(`OpenRouter API error: ${response.status} ${await response.text()}`);
   return await response.json();
 }
 

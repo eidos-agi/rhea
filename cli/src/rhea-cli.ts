@@ -60,6 +60,9 @@ Global Flags:
   --server <label>    Target a specific server for a single command
   --help              Show this help message and read documentation
 
+List Flags:
+  --images            Fetch live image-generation models from OpenRouter
+
 Draw Flags:
   --output <path>     Required: Where to save the generated image
   --model <name>      Optional: The logical image model to use (default: draw)
@@ -352,10 +355,28 @@ if (command === 'unpair') {
 
 // ---- COMMAND: LIST ----
 if (command === 'list') {
+  const showImages = args.includes('--images');
   const label = getActiveServerLabel();
   const server = label ? config.servers[label] : null;
   
-  if (server) {
+  if (showImages) {
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) {
+      console.error("❌ Error: OPENROUTER_API_KEY is required to discovery remote image models.");
+      process.exit(1);
+    }
+    (async () => {
+      try {
+        console.log("Fetching live image models from OpenRouter...");
+        const res = await fetch("https://openrouter.ai/api/v1/models?output_modalities=image");
+        const data = await res.json() as any;
+        console.log("Available OpenRouter Image Models:");
+        data.data.forEach((m: any) => console.log(`  - ${m.id} (${m.name})`));
+      } catch (err: any) {
+        console.error(`❌ Discovery failed: ${err.message}`);
+      }
+    })();
+  } else if (server) {
     (async () => {
       try {
         const generator = rpc(server, 'list');

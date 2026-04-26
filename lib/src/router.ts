@@ -16,7 +16,7 @@ export interface OpenAIProvider {
 
 export interface ImageApiProvider {
   type: 'image-api';
-  api_type: 'openai' | 'stability' | 'fal';
+  api_type: 'openai' | 'stability' | 'fal' | 'openrouter';
   base_url: string;
   api_key_env: string;
   upstream_model: string;

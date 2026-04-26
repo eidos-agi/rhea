@@ -41,5 +41,19 @@
     "base_url": "https://fal.run",
     "api_key_env": "FAL_KEY",
     "upstream_model": "flux-pro"
+  },
+  "or-nano-banana": {
+    "type": "image-api",
+    "api_type": "openrouter",
+    "base_url": "https://openrouter.ai/api/v1",
+    "api_key_env": "OPENROUTER_API_KEY",
+    "upstream_model": "google/gemini-2.5-flash-image"
+  },
+  "or-flux-pro": {
+    "type": "image-api",
+    "api_type": "openrouter",
+    "base_url": "https://openrouter.ai/api/v1",
+    "api_key_env": "OPENROUTER_API_KEY",
+    "upstream_model": "black-forest-labs/flux.2-pro"
   }
 }
