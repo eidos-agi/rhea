@@ -1,0 +1,14 @@
+# REQUIREMENT: High-Precision Persistent LRU Cache
+
+Implement a thread-safe, TypeScript-based LRU (Least Recently Used) cache that supports:
+1.  **TTL (Time-to-Live)**: Items should automatically expire after a set duration.
+2.  **Persistence**: The cache should periodically sync its state to a local JSON file.
+3.  **Tiered Architecture**: 
+    - Separate the core LRU logic from the persistence layer.
+    - Use strict types for cache items and configuration.
+4.  **Error Handling**: Handle filesystem errors gracefully (e.g., if the disk is full).
+
+The final implementation must be decomposed into three files:
+- `types.ts`: Shared interfaces and configuration.
+- `storage.ts`: File-system interaction and sync logic.
+- `cache.ts`: The core LRU logic with TTL management.
