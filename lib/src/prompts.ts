@@ -66,6 +66,8 @@ export function getRolePrompt(role: string, adversarial: boolean = false): strin
     return DECIDER_PROMPT;
   } else if (role === "planner") {
     return PLANNER_PROMPT;
+  } else if (role === "refinery") {
+    return REFINERY_PROMPT;
   } else {
     throw new Error(`Unknown role: ${role}`);
   }
@@ -92,3 +94,14 @@ You MUST respond with valid JSON and nothing else:
     }
   ]
 }`;
+
+export const REFINERY_PROMPT = `You are the Refinery in a multi-agent coding factory. Your role is to MERGE and VALIDATE the outputs of multiple independent workers.
+
+- You will see the original requirement.
+- You will see the proposed changes for multiple files.
+- Ensure that the changes are semantically consistent across all files.
+- Check for broken references, type mismatches, or logic gaps between the new code blocks.
+- Verify that the final state fulfills the original requirement without introducing regressions.
+
+If the changes are consistent and correct, respond with "APPROVED".
+If there are issues, provide a specific list of "REVISIONS NEEDED" and describe the fixes required.`;

@@ -247,6 +247,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         // Phase 2: Execution
         for (const task of tasks) {
+          // Minimum Viable Context (MVC): In MCP we don't have direct local file access
+          // during worker phase easily unless context was passed in the bundle.
+          // For now, we pass the full context but limit the task requirement.
           const taskResult = await pod.debate(task.requirement, { 
             context: context || "", 
             mode: 'code' 
@@ -259,11 +262,26 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           });
         }
 
+        // Phase 3: Refinery (Merge Gate)
+        const changes: Record<string, string> = {};
+        results.forEach(r => {
+          let code = r.result;
+          if (code && code.includes('```')) {
+            const lines = code.split('\n');
+            code = lines.filter((l: string) => !l.trim().startsWith('```')).join('\n').trim();
+          }
+          changes[r.file] = code;
+        });
+
+        const refineryResult = await pod.refine(requirement, changes);
+
         return {
           content: [{ 
             type: "text", 
             text: JSON.stringify({
               status: "complete",
+              refinery_status: refineryResult.status,
+              refinery_feedback: refineryResult.feedback,
               tasks_completed: results.length,
               results
             }, null, 2) 

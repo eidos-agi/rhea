@@ -302,4 +302,39 @@ export class Pod {
       throw new Error(`Failed to parse planner output: ${rawPlan}`);
     }
   }
+
+  async refine(requirement: string, changes: Record<string, string>): Promise<{ status: "APPROVED" | "REVISIONS NEEDED", feedback?: string }> {
+    const system = getRolePrompt("refinery");
+    const changesText = Object.entries(changes).map(([file, content]) => `FILE: ${file}\n---\n${content}\n---`).join("\n\n");
+    const userContent = `Original Requirement: ${requirement}\n\nProposed Changes:\n${changesText}`;
+    const messages: Message[] = [{ role: "user", content: userContent }];
+
+    const modelReq = this.modelNames[0]; 
+    const orderedServers = getOrderedServers(this.clientConfig);
+    
+    let rawResponse = "";
+
+    for (const server of orderedServers) {
+      try {
+        const generator = rpc(server, 'ask', { model: modelReq, messages, system, stream: false });
+        let result;
+        for await (const chunk of generator) { result = chunk; }
+        rawResponse = result.choices[0].message.content;
+        break;
+      } catch (e) { /* next */ }
+    }
+
+    if (!rawResponse) {
+      const generator = routeChatCompletion(modelReq, messages, false);
+      let result;
+      for await (const chunk of generator) { result = chunk; }
+      rawResponse = (result as any).choices[0].message.content;
+    }
+
+    if (rawResponse.includes("APPROVED")) {
+      return { status: "APPROVED" };
+    } else {
+      return { status: "REVISIONS NEEDED", feedback: rawResponse };
+    }
+  }
 }

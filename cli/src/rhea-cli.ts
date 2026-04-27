@@ -577,11 +577,16 @@ else if (command === 'code') {
       for (const task of tasks) {
         console.log(`▶️  Executing Task: ${task.id} (${task.description})`);
         
-        // Build task-specific context
-        let taskContext = contextBundle;
-        if (task.context_files) {
-          // If task specifies files, prioritize them (but keep the bundle for now)
-          // Future: Filter bundle to only these files
+        // Minimum Viable Context (MVC): Only provide files explicitly mentioned for this task
+        let taskContext = "";
+        if (task.context_files && task.context_files.length > 0) {
+          for (const cf of task.context_files) {
+            if (fs.existsSync(cf)) {
+              taskContext += `FILE: ${cf}\n---\n${fs.readFileSync(cf, 'utf8')}\n---\n\n`;
+            }
+          }
+        } else {
+          taskContext = contextBundle; // Fallback to bundle if no specific files identified
         }
 
         const taskResult = await pod.debate(task.requirement, { 
@@ -601,7 +606,19 @@ else if (command === 'code') {
         }
       }
 
-      // Step 3: Output / Commit
+      // Step 3: Refinery (Merge Gate)
+      console.log("🔍 Phase 3: Refining and validating combined results...");
+      const refineryResult = await pod.refine(requirement, finalChanges);
+
+      if (refineryResult.status === "APPROVED") {
+        console.log("✅ Results approved by the Refinery.\n");
+      } else {
+        console.warn("⚠️  Refinery Flagged Issues:");
+        console.warn(refineryResult.feedback);
+        console.log("\n(Proceeding with caution as automated rollback is not yet implemented)\n");
+      }
+
+      // Step 4: Output / Commit
       if (Object.keys(finalChanges).length > 0) {
         console.log("💎 FINAL RESULTS:");
         for (const [file, code] of Object.entries(finalChanges)) {
