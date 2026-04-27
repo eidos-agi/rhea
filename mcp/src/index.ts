@@ -10,13 +10,15 @@ import {
   loadClientConfig, 
   saveClientConfig,
   getOrderedServers, 
-  rpc, 
   routeChatCompletion,
+  rpc,
   Pod,
   loadSession,
   saveSession,
-  injectEnvKeys
+  injectEnvKeys,
+  defaultCodingProfile
 } from "@rhea/lib";
+
 import { generateImage } from "@rhea/images";
 import providers from "../../providers.json" with { type: "json" };
 
@@ -252,7 +254,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           // For now, we pass the full context but limit the task requirement.
           const taskResult = await pod.debate(task.requirement, { 
             context: context || "", 
-            mode: 'code' 
+            roles: defaultCodingProfile.worker 
           });
           results.push({
             task_id: task.id,
