@@ -14,10 +14,14 @@ import {
   routeChatCompletion,
   Pod,
   loadSession,
-  saveSession
+  saveSession,
+  injectEnvKeys
 } from "@rhea/lib";
 import { generateImage } from "@rhea/images";
 import providers from "../../providers.json" with { type: "json" };
+
+// Match the CLI behavior: load keys saved with `rhea-cli key` before serving tools.
+injectEnvKeys();
 
 const server = new Server(
   {

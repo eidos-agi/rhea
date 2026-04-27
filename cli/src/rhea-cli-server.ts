@@ -7,11 +7,15 @@ import providers from '../../providers.json' with { type: 'json' };
 import { 
   loadServerConfig, 
   saveServerConfig, 
-  routeChatCompletion 
+  routeChatCompletion,
+  injectEnvKeys
 } from '@rhea/lib';
 
 const args = process.argv.slice(2);
 const command = args[0];
+
+// Injects keys from keystore into process.env before any model execution
+injectEnvKeys();
 
 // Load paired tokens
 let serverConfig = loadServerConfig() as any;
