@@ -187,32 +187,53 @@ else if (command === 'doctor') {
   (async () => {
     console.log("🩺 Rhea Diagnostic Report\n");
 
+    console.log("Phase 1: Binary Dependencies");
     const binaries = ['claude', 'gemini', 'ssh'];
     for (const bin of binaries) {
       try {
         execSync(`which ${bin}`, { stdio: 'ignore' });
-        console.log(`✅ ${bin.padEnd(10)} : Installed`);
+        console.log(`  ✅ ${bin.padEnd(10)} : Installed`);
       } catch (e) {
-        console.warn(`⚠️ ${bin.padEnd(10)} : NOT FOUND (Some features will be limited)`);
+        console.warn(`  ⚠️ ${bin.padEnd(10)} : NOT FOUND (Some features will be limited)`);
       }
     }
 
     const keys = loadKeys();
     const requiredKeys = ['OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'STABILITY_API_KEY', 'FAL_KEY'];
-    console.log("\nSecrets:");
+    console.log("\nPhase 2: Secret Keystore");
     for (const key of requiredKeys) {
-      if (keys[key]) console.log(`✅ ${key.padEnd(20)} : Configured`);
-      else console.log(`⚪ ${key.padEnd(20)} : Not set`);
+      if (keys[key]) console.log(`  ✅ ${key.padEnd(20)} : Configured`);
+      else console.log(`  ⚪ ${key.padEnd(20)} : Not set`);
     }
 
-    console.log("\nServers:");
+    console.log("\nPhase 3: Live Model Probes (Orchestration Health)");
+    const availableModels = Object.keys(providers).filter(m => m !== 'draw');
+    for (const model of availableModels) {
+      process.stdout.write(`  🤔 Testing ${model.padEnd(20)} ... `);
+      try {
+        const messages = [{ role: 'user', content: 'Say "Working"' }];
+        const generator = routeChatCompletion(model, messages, false);
+        let result;
+        for await (const chunk of generator) { result = chunk; }
+        const content = (result as any).choices[0].message.content;
+        if (content.toLowerCase().includes('working')) {
+          console.log("✅ WORKING");
+        } else {
+          console.log(`⚠️  PARTIAL (Response: "${content.slice(0, 20)}...")`);
+        }
+      } catch (err: any) {
+        console.log(`❌ FAILED (${err.message.split('\n')[0]})`);
+      }
+    }
+
+    console.log("\nPhase 4: Remote Mesh Reachability");
     for (const [name, server] of Object.entries(config.servers)) {
       try {
         const generator = rpc(server, 'ping');
         for await (const _ of generator) { /* ping */ }
-        console.log(`✅ ${name.padEnd(15)} : Online (${server.host})`);
+        console.log(`  ✅ ${name.padEnd(15)} : Online (${server.host})`);
       } catch (e: any) {
-        console.log(`❌ ${name.padEnd(15)} : Offline - ${e.message}`);
+        console.log(`  ❌ ${name.padEnd(15)} : Offline - ${e.message}`);
       }
     }
 
