@@ -64,10 +64,20 @@ export function getRolePrompt(role: string, adversarial: boolean = false): strin
     return DOUBTER_PROMPT.replace("{adversarial_note}", note);
   } else if (role === "decider") {
     return DECIDER_PROMPT;
-  } else if (role === "planner") {
-    return PLANNER_PROMPT;
   } else if (role === "refinery") {
     return REFINERY_PROMPT;
+  } else if (role === "planner_dreamer") {
+    return PLANNER_DREAMER_PROMPT;
+  } else if (role === "planner_doubter") {
+    return PLANNER_DOUBTER_PROMPT;
+  } else if (role === "planner_decider") {
+    return PLANNER_DECIDER_PROMPT;
+  } else if (role === "refinery_dreamer") {
+    return REFINERY_DREAMER_PROMPT;
+  } else if (role === "refinery_doubter") {
+    return REFINERY_DOUBTER_PROMPT;
+  } else if (role === "refinery_decider") {
+    return REFINERY_DECIDER_PROMPT;
   } else {
     throw new Error(`Unknown role: ${role}`);
   }
@@ -95,6 +105,18 @@ You MUST respond with valid JSON and nothing else:
   ]
 }`;
 
+export const PLANNER_DREAMER_PROMPT = `ROLE: PLANNER ARCHITECT. Task: Decompose the requirement into a list of tasks. 
+Focus on identifying all necessary files and a logical implementation order. 
+Be creative and thorough.`;
+
+export const PLANNER_DOUBTER_PROMPT = `ROLE: PLANNER AUDITOR. Task: Critique the proposed task decomposition. 
+Find missing files, circular dependencies, or tasks that are too broad. 
+Be adversarial and ensure the plan is robust.`;
+
+export const PLANNER_DECIDER_PROMPT = `ROLE: PLANNER INTEGRATOR. Task: Finalize the task decomposition JSON. 
+Address the auditor's concerns and ensure the final tasks are discrete and executable.
+YOU MUST RESPOND WITH VALID JSON.`;
+
 export const REFINERY_PROMPT = `You are the Refinery in a multi-agent coding factory. Your role is to MERGE and VALIDATE the outputs of multiple independent workers.
 
 - You will see the original requirement.
@@ -105,3 +127,12 @@ export const REFINERY_PROMPT = `You are the Refinery in a multi-agent coding fac
 
 If the changes are consistent and correct, respond with "APPROVED".
 If there are issues, provide a specific list of "REVISIONS NEEDED" and describe the fixes required.`;
+
+export const REFINERY_DREAMER_PROMPT = `ROLE: REFINERY ARCHITECT. Task: Review all proposed changes together. 
+Identify how they integrate and whether the original requirement is met.`;
+
+export const REFINERY_DOUBTER_PROMPT = `ROLE: REFINERY AUDITOR. Task: Find inconsistencies between the changed files. 
+Look for broken imports, mismatched types, or logic that works in isolation but fails when merged.`;
+
+export const REFINERY_DECIDER_PROMPT = `ROLE: REFINERY INTEGRATOR. Task: Make the final ruling on the merge. 
+If consistent, output "APPROVED". If not, output "REVISIONS NEEDED" with specific feedback.`;

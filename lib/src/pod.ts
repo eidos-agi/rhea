@@ -58,12 +58,12 @@ export class Pod {
       timeLimit?: number;
       clarification?: string;
       resumeState?: any;
-      mode?: 'general' | 'code';
+      mode?: 'general' | 'code' | 'plan' | 'refine';
     } = {}
   ): Promise<PodResult> {
     const {
       context = "",
-      maxRounds = (options.mode === 'code' ? 1 : 3),
+      maxRounds = (options.mode === 'code' || options.mode === 'plan' || options.mode === 'refine' ? 1 : 3),
       timeLimit = 300,
       clarification = "",
       resumeState = null,
@@ -86,12 +86,20 @@ export class Pod {
       const elapsed = (Date.now() - startTime) / 1000;
       if (elapsed >= timeLimit) break;
 
-      // 1. Dreamer / Architect
-      const proposal = await this.runRole(mode === 'code' ? "architect" : "dreamer", question, currentContext, rounds, { mode });
+      // 1. Dreamer
+      let dreamerRole = "dreamer";
+      if (mode === 'code') dreamerRole = "architect";
+      else if (mode === 'plan') dreamerRole = "planner_dreamer";
+      else if (mode === 'refine') dreamerRole = "refinery_dreamer";
+      const proposal = await this.runRole(dreamerRole, question, currentContext, rounds, { mode });
 
-      // 2. Doubter / Auditor
+      // 2. Doubter
+      let doubterRole = "doubter";
+      if (mode === 'code') doubterRole = "auditor";
+      else if (mode === 'plan') doubterRole = "planner_doubter";
+      else if (mode === 'refine') doubterRole = "refinery_doubter";
       const forceAdversarial = Math.random() < this.adversarialRate;
-      const critique = await this.runRole(mode === 'code' ? "auditor" : "doubter", question, currentContext, rounds, { proposal, adversarial: forceAdversarial, mode });
+      const critique = await this.runRole(doubterRole, question, currentContext, rounds, { proposal, adversarial: forceAdversarial, mode });
 
       // Check for clarification
       if (critique.trim().startsWith("CLARIFICATION NEEDED:")) {
@@ -108,8 +116,12 @@ export class Pod {
         return this.buildClarificationResult(rounds, clarificationQuestion);
       }
 
-      // 3. Decider / Integrator
-      const rawDecision = await this.runRole(mode === 'code' ? "integrator" : "decider", question, currentContext, rounds, { proposal, critique, mode });
+      // 3. Decider
+      let deciderRole = "decider";
+      if (mode === 'code') deciderRole = "integrator";
+      else if (mode === 'plan') deciderRole = "planner_decider";
+      else if (mode === 'refine') deciderRole = "refinery_decider";
+      const rawDecision = await this.runRole(deciderRole, question, currentContext, rounds, { proposal, critique, mode });
       const decision = this.parseDeciderResponse(rawDecision);
 
       rounds.push({
@@ -121,7 +133,7 @@ export class Pod {
         roleMap: this.getRoleMap()
       });
 
-      if (decision.confident || mode === 'code') break;
+      if (decision.confident || mode === 'code' || mode === 'plan' || mode === 'refine') break;
 
       this.rotate();
     }
@@ -134,31 +146,33 @@ export class Pod {
     question: string, 
     context: string, 
     history: PodRound[],
-    opts: { proposal?: string, critique?: string, adversarial?: boolean, mode?: 'general' | 'code' } = {}
+    opts: { proposal?: string, critique?: string, adversarial?: boolean, mode?: 'general' | 'code' | 'plan' | 'refine' } = {}
   ): Promise<string> {
     let system = "";
-    if (opts.mode === 'code') {
-      if (role === 'architect') system = "ROLE: ARCHITECT. Task: Implement the following code requirement. Produce full, clean, and typed code. No omissions. No placeholders. Ensure best practices.";
-      else if (role === 'auditor') system = "ROLE: AUDITOR. Task: Find bugs, security flaws, performance issues, and logic errors in the provided code implementation. Be adversarial and meticulous.";
-      else if (role === 'integrator') system = "ROLE: INTEGRATOR. Task: Synthesize the final implementation. Address all points from the AUDITOR's critique and apply necessary fixes to the ARCHITECT's code. Output the final, verified, and complete code block.";
+    if (opts.mode === 'code' || opts.mode === 'plan' || opts.mode === 'refine') {
+      system = getRolePrompt(role);
     } else {
       system = getRolePrompt(role, opts.adversarial);
     }
     
     let userContent = "";
 
-    if (role === "dreamer" || role === "architect") {
+    if (role === "dreamer" || role === "architect" || role === "planner_dreamer" || role === "refinery_dreamer") {
       userContent = `Question: ${question}`;
-    } else if (role === "doubter" || role === "auditor") {
-      userContent = `Original question: ${question}\n\nProposed implementation:\n${opts.proposal}`;
-    } else if (role === "decider" || role === "integrator") {
-      userContent = `Original question: ${question}\n\nInitial code:\n${opts.proposal}\n\nCritique and vulnerabilities found:\n${opts.critique}`;
+    } else if (role === "doubter" || role === "auditor" || role === "planner_doubter" || role === "refinery_doubter") {
+      userContent = `Original question: ${question}\n\nProposed implementation/plan:\n${opts.proposal}`;
+    } else if (role === "decider" || role === "integrator" || role === "planner_decider" || role === "refinery_decider") {
+      userContent = `Original question: ${question}\n\nInitial proposal/plan:\n${opts.proposal}\n\nCritique and vulnerabilities found:\n${opts.critique}`;
     }
 
     if (context) userContent += `\n\nContext: ${context}`;
     if (history.length > 0) userContent += `\n\nPrevious rounds:\n${this.formatHistory(history)}`;
 
-    const modelReq = this.modelNames[this.roles.indexOf(role === 'architect' ? 'dreamer' : role === 'auditor' ? 'doubter' : role === 'integrator' ? 'decider' : role)] || this.modelNames[0];
+    const modelReq = this.modelNames[this.roles.indexOf(
+      role.includes('dreamer') || role === 'architect' ? 'dreamer' : 
+      role.includes('doubter') || role === 'auditor' ? 'doubter' : 
+      'decider'
+    )] || this.modelNames[0];
     const messages: Message[] = [{ role: "user", content: userContent }];
 
     // Execution with Fallback
