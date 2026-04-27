@@ -29,6 +29,7 @@ export class Pod {
   private modelNames: string[];
   private adversarialRate: number;
   private clientConfig: ClientConfig;
+  public onActivity?: (data: { role: string, model: string, status: 'thinking' | 'done', content?: string }) => void;
 
   constructor(modelNames: string[], clientConfig: ClientConfig, adversarialRate: number = 0.07) {
     // Ensure we have exactly 3 models by recycling if needed
@@ -175,25 +176,40 @@ export class Pod {
     )] || this.modelNames[0];
     const messages: Message[] = [{ role: "user", content: userContent }];
 
+    if (this.onActivity) {
+      this.onActivity({ role, model: modelReq, status: 'thinking' });
+    }
+
     // Execution with Fallback
     const orderedServers = getOrderedServers(this.clientConfig);
     
+    let resultText = "";
+
     for (const server of orderedServers) {
       try {
         const generator = rpc(server, 'ask', { model: modelReq, messages, system, stream: false });
         let result;
         for await (const chunk of generator) { result = chunk; }
-        return result.choices[0].message.content;
+        resultText = result.choices[0].message.content;
+        break;
       } catch (e) {
         // Continue to next server
       }
     }
 
-    // Local fallback
-    const generator = routeChatCompletion(modelReq, messages, false, undefined, system);
-    let result;
-    for await (const chunk of generator) { result = chunk; }
-    return (result as any).choices[0].message.content;
+    if (!resultText) {
+      // Local fallback
+      const generator = routeChatCompletion(modelReq, messages, false, undefined, system);
+      let result;
+      for await (const chunk of generator) { result = chunk; }
+      resultText = (result as any).choices[0].message.content;
+    }
+
+    if (this.onActivity) {
+      this.onActivity({ role, model: modelReq, status: 'done', content: resultText });
+    }
+
+    return resultText;
   }
 
   private rotate() {

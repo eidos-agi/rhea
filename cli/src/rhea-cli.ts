@@ -471,10 +471,22 @@ else if (command === 'debate') {
     return true;
   });
   const question = promptArgs.join(' ');
+  const verbose = args.includes('--verbose');
 
   (async () => {
     const availableModels = Object.keys(providers).filter(m => m !== 'draw');
     const pod = new Pod(models || availableModels.slice(0, 3), config);
+
+    if (verbose) {
+      pod.onActivity = (act) => {
+        if (act.status === 'thinking') {
+          console.log(`  🤔 [${act.role.toUpperCase()}] ${act.model} is thinking...`);
+        } else {
+          console.log(`  ✅ [${act.role.toUpperCase()}] ${act.model} finished.`);
+        }
+      };
+    }
+
     try {
       const result = await pod.debate(question);
       console.log(`\n🏆 FINAL DECISION:\n${result.decision}`);
@@ -526,6 +538,7 @@ else if (command === 'code') {
     return true;
   });
   let requirement = promptArgs.join(' ');
+  const verbose = args.includes('--verbose');
 
   // Smart Discovery: Look for filenames mentioned in the requirement
   const words = requirement.split(/\s+/);
@@ -555,6 +568,17 @@ else if (command === 'code') {
     const { Pod } = await import('@rhea/lib');
     const availableModels = Object.keys(providers).filter(m => m !== 'draw');
     const pod = new Pod(models || availableModels.slice(0, 3), config);
+
+    if (verbose) {
+      pod.onActivity = (act) => {
+        if (act.status === 'thinking') {
+          console.log(`  🤔 [${act.role.toUpperCase()}] ${act.model} is thinking...`);
+        } else {
+          console.log(`  ✅ [${act.role.toUpperCase()}] ${act.model} finished.`);
+        }
+      };
+    }
+
     try {
       console.log("🛠️  Rhea is orchestrating implementation and audit...\n");
       
