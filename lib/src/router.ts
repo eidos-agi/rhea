@@ -84,13 +84,20 @@ export async function* routeChatCompletion(
     const cmdArgs = args.slice(1).filter(a => a !== '');
 
     const child = spawn(command, cmdArgs);
-    
-    // Write prompt to stdin
-    child.stdin.write(prompt);
-    child.stdin.end();
-
     let fullContent = '';
     let stderr = '';
+
+    // Catch spawn errors (e.g. command not found)
+    child.on('error', (err: any) => {
+      stderr = `Spawn Error: ${err.message}`;
+    });
+
+    // Write prompt to stdin
+    if (child.stdin) {
+      child.stdin.write(prompt);
+      child.stdin.end();
+    }
+
     const id = `chatcmpl-${Math.random().toString(36).slice(2)}`;
     const created = Math.floor(Date.now() / 1000);
 
