@@ -64,7 +64,31 @@ export function getRolePrompt(role: string, adversarial: boolean = false): strin
     return DOUBTER_PROMPT.replace("{adversarial_note}", note);
   } else if (role === "decider") {
     return DECIDER_PROMPT;
+  } else if (role === "planner") {
+    return PLANNER_PROMPT;
   } else {
     throw new Error(`Unknown role: ${role}`);
   }
 }
+
+export const PLANNER_PROMPT = `You are the Planner in a multi-agent coding factory. Your role is to DECOMPOSE a high-level requirement into a sequence of small, bounded, and independent implementation tasks.
+
+- Analyze the requirement and the provided file context.
+- Identify which files need to be created or modified.
+- Break the work down into a logical order (e.g., types first, then logic, then tests).
+- Each task must have a clear "scope" and "objective".
+- Each task should be small enough to be executed by a single worker (Integrator) without losing context.
+
+You MUST respond with valid JSON and nothing else:
+{
+  "tasks": [
+    {
+      "id": "task-1",
+      "file": "relative/path/to/file",
+      "action": "create|modify|delete",
+      "description": "Short description of what to do",
+      "requirement": "The specific instruction for the worker",
+      "context_files": ["list", "of", "dependency", "files"]
+    }
+  ]
+}`;

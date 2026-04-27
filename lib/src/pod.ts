@@ -259,4 +259,47 @@ export class Pod {
       rotation_count: this.rotationCount
     };
   }
+
+  async plan(requirement: string, context: string = ""): Promise<any[]> {
+    const system = getRolePrompt("planner");
+    const userContent = `Requirement: ${requirement}\n\nContext:\n${context}`;
+    const messages: Message[] = [{ role: "user", content: userContent }];
+
+    const modelReq = this.modelNames[0]; // Use the primary model for planning
+    const orderedServers = getOrderedServers(this.clientConfig);
+    
+    let rawPlan = "";
+
+    for (const server of orderedServers) {
+      try {
+        const generator = rpc(server, 'ask', { model: modelReq, messages, system, stream: false });
+        let result;
+        for await (const chunk of generator) { result = chunk; }
+        rawPlan = result.choices[0].message.content;
+        break;
+      } catch (e) {
+        // Continue to next server
+      }
+    }
+
+    if (!rawPlan) {
+      const generator = routeChatCompletion(modelReq, messages, false);
+      let result;
+      for await (const chunk of generator) { result = chunk; }
+      rawPlan = (result as any).choices[0].message.content;
+    }
+
+    try {
+      // Clean up markdown
+      let json = rawPlan.trim();
+      if (json.includes('```')) {
+        const lines = json.split('\n');
+        json = lines.filter(l => !l.trim().startsWith('```')).join('\n').trim();
+      }
+      const parsed = JSON.parse(json);
+      return parsed.tasks || [];
+    } catch (e) {
+      throw new Error(`Failed to parse planner output: ${rawPlan}`);
+    }
+  }
 }
