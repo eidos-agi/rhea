@@ -89,7 +89,6 @@ rhea-cli code "Write a TypeScript class to manage a LRU cache with SHA-256 keys"
 # Generate high-fidelity images (Nano Banana 3)
 rhea-cli draw "A minimalist representation of momentum" --output logo.png --aspect-ratio 16:9
 ```
-
 ### 4. Leverage Skills
 Rhea includes specialized agent instructions in the `.skills` directory. Use these skills to guide your AI assistants during deployment:
 - **`rhea-doctor`**: Automated health diagnostics and orchestration repair.
@@ -99,7 +98,24 @@ Rhea includes specialized agent instructions in the `.skills` directory. Use the
 
 ---
 
+## 🐍 Python Client
+
+Rhea is now available as a Python package for integration into your own Python-based agents and workflows.
+
+```bash
+pip install rhea-agi
+```
+
+```python
+from rhea import RheaClient
+client = RheaClient()
+response = client.ask("claude-pro", "Analyze this codebase.")
+```
+
+---
+
 ## 🛡️ Security & Privacy
+...
 All traffic is encrypted via **Tailscale/WireGuard**. Rhea is designed for **Least Privilege**, running via narrow RPC commands rather than a broad shell.
 
 ---
