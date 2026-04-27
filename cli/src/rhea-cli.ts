@@ -188,13 +188,19 @@ else if (command === 'doctor') {
     console.log("🩺 Rhea Diagnostic Report\n");
 
     console.log("Phase 1: Binary Dependencies");
-    const binaries = ['claude', 'gemini', 'ssh'];
-    for (const bin of binaries) {
+    const cliBinaries = new Set<string>(['ssh']); // Always check ssh
+    Object.values(providers as Record<string, any>).forEach(p => {
+      if (p.type === 'cli' && p.cmd && p.cmd[0]) {
+        cliBinaries.add(p.cmd[0]);
+      }
+    });
+
+    for (const bin of Array.from(cliBinaries).sort()) {
       try {
         execSync(`which ${bin}`, { stdio: 'ignore' });
         console.log(`  ✅ ${bin.padEnd(10)} : Installed`);
       } catch (e) {
-        console.warn(`  ⚠️ ${bin.padEnd(10)} : NOT FOUND (Some features will be limited)`);
+        console.warn(`  ⚠️ ${bin.padEnd(10)} : NOT FOUND`);
       }
     }
 
@@ -207,19 +213,19 @@ else if (command === 'doctor') {
     }
 
     console.log("\nPhase 3: Live Model Probes (Orchestration Health)");
-    const availableModels = Object.keys(providers).filter(m => m !== 'draw');
+    const availableModels = Object.keys(providers).filter(m => m !== 'draw' && (providers as any)[m].type !== 'image-api');
     for (const model of availableModels) {
       process.stdout.write(`  🤔 Testing ${model.padEnd(20)} ... `);
       try {
-        const messages = [{ role: 'user', content: 'Say "Working"' }];
+        const messages = [{ role: 'user', content: 'What is the capital of Canada? Respond with just the name.' }];
         const generator = routeChatCompletion(model, messages, false);
         let result;
         for await (const chunk of generator) { result = chunk; }
         const content = (result as any).choices[0].message.content;
-        if (content.toLowerCase().includes('working')) {
-          console.log("✅ WORKING");
+        if (content.toLowerCase().includes('ottawa')) {
+          console.log(`✅ WORKING ("${content.trim()}")`);
         } else {
-          console.log(`⚠️  PARTIAL (Response: "${content.slice(0, 20)}...")`);
+          console.log(`⚠️  UNEXPECTED (Response: "${content.trim().slice(0, 30)}...")`);
         }
       } catch (err: any) {
         console.log(`❌ FAILED (${err.message.split('\n')[0]})`);

@@ -121,7 +121,7 @@ export async function* routeChatCompletion(
     await new Promise((resolve) => child.on('close', resolve));
 
     if (stderr.trim()) {
-      // process.stderr.write(`CLI Provider Stderr (${modelReq}):\n${stderr}\n`);
+      process.stderr.write(`CLI Provider Stderr (${modelReq}):\n${stderr}\n`);
     }
 
     if (!stream) {
