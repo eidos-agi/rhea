@@ -29,15 +29,18 @@ Rhea isn't just an orchestrator; it's a momentum engine. It implements our **Pod
 This process forces "discontinuous jumps" in reasoning, breaking the local minima of individual models. Rhea turns the "information bottleneck" of language into a tool for escaping the limits of single-model gradient descent.
 
 #### 🛠️ Specialized Coding Pod
-Rhea now includes an expansion for automated software engineering. By using the specialized **Architect / Auditor / Integrator** rotation, Rhea can implement complex code and cross-verify it across multiple models to eliminate "invisible bugs."
+Rhea now includes an expansion for automated software engineering. By using a **Three-Tier Factory Architecture** (Planner / Worker Pods / Refinery), Rhea can decompose complex requirements and cross-verify them to eliminate "invisible bugs."
+
+- **Tier 1: Planner**: Decomposes requirements into small, bounded tasks.
+- **Tier 2: Workers**: Ephemeral Pods (Architect/Auditor/Integrator) execute tasks in isolation with **Minimum Viable Context (MVC)**.
+- **Tier 3: Refinery**: A semantic Merge Gate that validates the combined results for cross-file consistency.
+
+> [!IMPORTANT]
+> **Read the Scaling Research**: Rhea's architecture is based on the [Scaling Laws for Agentic Factories](ARCHITECTURE_SCALING.md). We prioritize simplicity and orchestration over individual agent autonomy to ensure production-grade reliability at scale.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/eidos-agi/rhea/master/assets/rhea-pod.png" alt="Rhea Pod Orchestration" width="800">
 </p>
-
-- **Architect**: Implements the solution with strict types and clean structure.
-- **Auditor**: Adversarially critiques the code for security, performance, and logic errors.
-- **Integrator**: Synthesize the final, verified implementation based on the audit.
 
 ---
 
