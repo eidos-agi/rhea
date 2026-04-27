@@ -92,6 +92,7 @@ rhea-cli draw "A minimalist representation of momentum" --output logo.png --aspe
 
 ### 4. Leverage Skills
 Rhea includes specialized agent instructions in the `.skills` directory. Use these skills to guide your AI assistants during deployment:
+- **`rhea-doctor`**: Automated health diagnostics and orchestration repair.
 - **`rhea-client-install`**: Automated client setup.
 - **`rhea-server-install`**: Automated server setup and hardening.
 - **`rhea-pairing`**: Troubleshooting and managing secure server identities.
