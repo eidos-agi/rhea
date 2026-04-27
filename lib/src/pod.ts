@@ -2,6 +2,7 @@ import { routeChatCompletion, Message } from './router.js';
 import { getRolePrompt } from './prompts.js';
 import { rpc } from './rpc.js';
 import { ClientConfig, ServerProfile, getOrderedServers } from './config.js';
+import { WorkflowProfile, RoleDefinition, defaultCodingProfile } from './workflow.js';
 
 export interface PodRound {
   round: number;
@@ -59,16 +60,16 @@ export class Pod {
       timeLimit?: number;
       clarification?: string;
       resumeState?: any;
-      mode?: 'general' | 'code' | 'plan' | 'refine';
+      roles?: RoleDefinition;
     } = {}
   ): Promise<PodResult> {
     const {
       context = "",
-      maxRounds = (options.mode === 'code' || options.mode === 'plan' || options.mode === 'refine' ? 1 : 3),
+      maxRounds = (options.roles ? 1 : 3),
       timeLimit = 300,
       clarification = "",
       resumeState = null,
-      mode = 'general'
+      roles = { dreamer: "dreamer", doubter: "doubter", decider: "decider" }
     } = options;
 
     let rounds: PodRound[] = [];
@@ -88,19 +89,11 @@ export class Pod {
       if (elapsed >= timeLimit) break;
 
       // 1. Dreamer
-      let dreamerRole = "dreamer";
-      if (mode === 'code') dreamerRole = "architect";
-      else if (mode === 'plan') dreamerRole = "planner_dreamer";
-      else if (mode === 'refine') dreamerRole = "refinery_dreamer";
-      const proposal = await this.runRole(dreamerRole, question, currentContext, rounds, { mode });
+      const proposal = await this.runRole(roles.dreamer, question, currentContext, rounds);
 
       // 2. Doubter
-      let doubterRole = "doubter";
-      if (mode === 'code') doubterRole = "auditor";
-      else if (mode === 'plan') doubterRole = "planner_doubter";
-      else if (mode === 'refine') doubterRole = "refinery_doubter";
       const forceAdversarial = Math.random() < this.adversarialRate;
-      const critique = await this.runRole(doubterRole, question, currentContext, rounds, { proposal, adversarial: forceAdversarial, mode });
+      const critique = await this.runRole(roles.doubter, question, currentContext, rounds, { proposal, adversarial: forceAdversarial });
 
       // Check for clarification
       if (critique.trim().startsWith("CLARIFICATION NEEDED:")) {
@@ -118,11 +111,7 @@ export class Pod {
       }
 
       // 3. Decider
-      let deciderRole = "decider";
-      if (mode === 'code') deciderRole = "integrator";
-      else if (mode === 'plan') deciderRole = "planner_decider";
-      else if (mode === 'refine') deciderRole = "refinery_decider";
-      const rawDecision = await this.runRole(deciderRole, question, currentContext, rounds, { proposal, critique, mode });
+      const rawDecision = await this.runRole(roles.decider, question, currentContext, rounds, { proposal, critique });
       const decision = this.parseDeciderResponse(rawDecision);
 
       rounds.push({
@@ -134,7 +123,7 @@ export class Pod {
         roleMap: this.getRoleMap()
       });
 
-      if (decision.confident || mode === 'code' || mode === 'plan' || mode === 'refine') break;
+      if (decision.confident || options.roles) break;
 
       this.rotate();
     }
@@ -147,22 +136,17 @@ export class Pod {
     question: string, 
     context: string, 
     history: PodRound[],
-    opts: { proposal?: string, critique?: string, adversarial?: boolean, mode?: 'general' | 'code' | 'plan' | 'refine' } = {}
+    opts: { proposal?: string, critique?: string, adversarial?: boolean } = {}
   ): Promise<string> {
-    let system = "";
-    if (opts.mode === 'code' || opts.mode === 'plan' || opts.mode === 'refine') {
-      system = getRolePrompt(role);
-    } else {
-      system = getRolePrompt(role, opts.adversarial);
-    }
+    const system = getRolePrompt(role, opts.adversarial);
     
     let userContent = "";
 
-    if (role === "dreamer" || role === "architect" || role === "planner_dreamer" || role === "refinery_dreamer") {
+    if (role.includes("dreamer") || role === "architect") {
       userContent = `Question: ${question}`;
-    } else if (role === "doubter" || role === "auditor" || role === "planner_doubter" || role === "refinery_doubter") {
+    } else if (role.includes("doubter") || role === "auditor") {
       userContent = `Original question: ${question}\n\nProposed implementation/plan:\n${opts.proposal}`;
-    } else if (role === "decider" || role === "integrator" || role === "planner_decider" || role === "refinery_decider") {
+    } else {
       userContent = `Original question: ${question}\n\nInitial proposal/plan:\n${opts.proposal}\n\nCritique and vulnerabilities found:\n${opts.critique}`;
     }
 
@@ -300,8 +284,8 @@ export class Pod {
     };
   }
 
-  async plan(requirement: string, context: string = ""): Promise<any[]> {
-    const result = await this.debate(requirement, { context, mode: 'plan' });
+  async plan(requirement: string, context: string = "", profile: WorkflowProfile = defaultCodingProfile): Promise<any[]> {
+    const result = await this.debate(requirement, { context, roles: profile.planner });
     const rawPlan = result.decision || "";
 
     try {
@@ -318,11 +302,11 @@ export class Pod {
     }
   }
 
-  async refine(requirement: string, changes: Record<string, string>): Promise<{ status: "APPROVED" | "REVISIONS NEEDED", feedback?: string }> {
+  async refine(requirement: string, changes: Record<string, string>, profile: WorkflowProfile = defaultCodingProfile): Promise<{ status: "APPROVED" | "REVISIONS NEEDED", feedback?: string }> {
     const changesText = Object.entries(changes).map(([file, content]) => `FILE: ${file}\n---\n${content}\n---`).join("\n\n");
     const question = `Original Requirement: ${requirement}\n\nProposed Changes:\n${changesText}`;
     
-    const result = await this.debate(question, { mode: 'refine' });
+    const result = await this.debate(question, { roles: profile.refinery });
     const rawResponse = result.decision || "";
 
     if (rawResponse.includes("APPROVED")) {

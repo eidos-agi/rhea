@@ -592,7 +592,7 @@ else if (command === 'code') {
   }
 
   (async () => {
-    const { Pod } = await import('@rhea/lib');
+    const { Pod, defaultCodingProfile } = await import('@rhea/lib');
     const availableModels = Object.keys(providers).filter(m => m !== 'draw');
     const pod = new Pod(models || availableModels.slice(0, 3), config);
 
@@ -642,7 +642,7 @@ else if (command === 'code') {
 
         const taskResult = await pod.debate(task.requirement, { 
           context: taskContext, 
-          mode: 'code' 
+          roles: defaultCodingProfile.worker 
         });
 
         let finalCode = taskResult.decision;
