@@ -3,8 +3,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "rhea"
-version = "0.1.1"
+name = "rhea-ai"
+version = "0.1.2"
 description = "Python client for Rhea: Sovereign Model Orchestration"
 readme = "README.md"
 requires-python = ">=3.8"

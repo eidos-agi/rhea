@@ -1,5 +1,5 @@
 # Publish to PyPI via trusted publisher (OIDC).
-# Triggered by pushing a version tag: git tag v0.1.1 && git push --tags
+# Triggered by pushing a version tag: git tag v0.1.2 && git push --tags
 
 name: Publish to PyPI
 

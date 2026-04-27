@@ -103,7 +103,7 @@ Rhea includes specialized agent instructions in the `.skills` directory. Use the
 Rhea is now available as a Python package for integration into your own Python-based agents and workflows.
 
 ```bash
-pip install rhea-agi
+pip install rhea-ai
 ```
 
 ```python

@@ -7,7 +7,7 @@ Rhea turns your existing, subscription-backed AI CLIs (Claude Pro, Gemini Advanc
 ## Installation
 
 ```bash
-pip install rhea
+pip install rhea-ai
 ```
 
 *Note: Requires a Rhea server to be configured and reachable via SSH.*
