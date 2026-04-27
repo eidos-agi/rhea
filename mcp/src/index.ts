@@ -153,6 +153,24 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         },
       },
       {
+        name: "rhea_code",
+        description: "Orchestrate automated code generation and audit using the Rhea 'Factory' architecture (Planner -> Workers).",
+        inputSchema: {
+          type: "object",
+          properties: {
+            requirement: { type: "string", description: "The coding requirement or feature to implement" },
+            context: { type: "string", description: "Optional codebase context, file contents, or existing logic" },
+            models: { 
+              type: "array", 
+              items: { type: "string", enum: models }, 
+              description: "Optional list of up to 3 models for the Pod workers.",
+              default: models.slice(0, 3)
+            },
+          },
+          required: ["requirement"],
+        },
+      },
+      {
         name: "rhea_draw",
         description: "Generate or edit an image using Rhea's image models.",
         inputSchema: {
@@ -209,6 +227,51 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       } catch (err: any) {
         return {
           content: [{ type: "text", text: `Debate failed: ${err.message}` }],
+          isError: true,
+        };
+      }
+    }
+
+    case "rhea_code": {
+      const { requirement, context, models } = request.params.arguments as any;
+      const podModels = models || getAvailableModels().slice(0, 3);
+      if (podModels.length === 0) {
+        return { content: [{ type: "text", text: "Error: No models configured in providers.json" }], isError: true };
+      }
+
+      const pod = new Pod(podModels, config);
+      try {
+        // Phase 1: Planning
+        const tasks = await pod.plan(requirement, context || "");
+        const results: any[] = [];
+
+        // Phase 2: Execution
+        for (const task of tasks) {
+          const taskResult = await pod.debate(task.requirement, { 
+            context: context || "", 
+            mode: 'code' 
+          });
+          results.push({
+            task_id: task.id,
+            file: task.file,
+            description: task.description,
+            result: taskResult.decision
+          });
+        }
+
+        return {
+          content: [{ 
+            type: "text", 
+            text: JSON.stringify({
+              status: "complete",
+              tasks_completed: results.length,
+              results
+            }, null, 2) 
+          }],
+        };
+      } catch (err: any) {
+        return {
+          content: [{ type: "text", text: `Coding orchestration failed: ${err.message}` }],
           isError: true,
         };
       }
