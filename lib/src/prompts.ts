@@ -56,6 +56,16 @@ You MUST respond with valid JSON and nothing else:
   "unresolved": "any doubter objections you couldn't address, or null"
 }`;
 
+export const ARCHITECT_PROMPT = `ROLE: ARCHITECT. Task: Implement the following code requirement. 
+Produce full, clean, and typed code. No omissions. No placeholders. Ensure best practices.`;
+
+export const AUDITOR_PROMPT = `ROLE: AUDITOR. Task: Find bugs, security flaws, performance issues, and logic errors in the provided code implementation. 
+Be adversarial and meticulous.`;
+
+export const INTEGRATOR_PROMPT = `ROLE: INTEGRATOR. Task: Synthesize the final implementation. 
+Address all points from the AUDITOR's critique and apply necessary fixes to the ARCHITECT's code. 
+Output the final, verified, and complete code block.`;
+
 export function getRolePrompt(role: string, adversarial: boolean = false): string {
   if (role === "dreamer") {
     return DREAMER_PROMPT;
@@ -64,6 +74,12 @@ export function getRolePrompt(role: string, adversarial: boolean = false): strin
     return DOUBTER_PROMPT.replace("{adversarial_note}", note);
   } else if (role === "decider") {
     return DECIDER_PROMPT;
+  } else if (role === "architect") {
+    return ARCHITECT_PROMPT;
+  } else if (role === "auditor") {
+    return AUDITOR_PROMPT;
+  } else if (role === "integrator") {
+    return INTEGRATOR_PROMPT;
   } else if (role === "refinery") {
     return REFINERY_PROMPT;
   } else if (role === "planner_dreamer") {

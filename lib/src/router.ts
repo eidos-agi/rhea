@@ -64,7 +64,8 @@ export async function* routeChatCompletion(
   modelReq: string, 
   messages: Message[], 
   stream: boolean = false,
-  sessionId?: string
+  sessionId?: string,
+  system?: string
 ): AsyncGenerator<StreamChunk | OpenAIResponse> {
   const provider = config[modelReq];
 
@@ -72,20 +73,28 @@ export async function* routeChatCompletion(
     throw new Error(`Model '${modelReq}' not found in providers.json`);
   }
 
-  const prompt = messages.map(m => `${m.role.toUpperCase()}:\n${m.content}`).join('\n\n');
+  const prompt = (system ? `SYSTEM: ${system}\n\n` : "") + messages.map(m => `${m.role.toUpperCase()}:\n${m.content}`).join('\n\n');
 
   if (provider.type === 'cli') {
-    let args = provider.cmd.map(arg => arg.replace('{prompt}', prompt));
+    let args = provider.cmd.map(arg => arg.replace('{prompt}', '')); // Remove prompt from args
     if (sessionId) {
       args.push('--session', sessionId);
     }
     const command = args[0];
-    const cmdArgs = args.slice(1);
+    const cmdArgs = args.slice(1).filter(a => a !== '');
 
     const child = spawn(command, cmdArgs);
+    
+    // Write prompt to stdin
+    child.stdin.write(prompt);
+    child.stdin.end();
+
     let fullContent = '';
+    let stderr = '';
     const id = `chatcmpl-${Math.random().toString(36).slice(2)}`;
     const created = Math.floor(Date.now() / 1000);
+
+    child.stderr.on('data', (data) => { stderr += data.toString(); });
 
     for await (const chunk of (child.stdout as any)) {
       const content = chunk.toString();
@@ -99,6 +108,13 @@ export async function* routeChatCompletion(
           choices: [{ index: 0, delta: { content }, finish_reason: null }]
         };
       }
+    }
+
+    // Wait for process to finish
+    await new Promise((resolve) => child.on('close', resolve));
+
+    if (stderr.trim()) {
+      // process.stderr.write(`CLI Provider Stderr (${modelReq}):\n${stderr}\n`);
     }
 
     if (!stream) {

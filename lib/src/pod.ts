@@ -180,7 +180,7 @@ export class Pod {
     
     for (const server of orderedServers) {
       try {
-        const generator = rpc(server, 'ask', { model: modelReq, messages, stream: false });
+        const generator = rpc(server, 'ask', { model: modelReq, messages, system, stream: false });
         let result;
         for await (const chunk of generator) { result = chunk; }
         return result.choices[0].message.content;
@@ -190,7 +190,7 @@ export class Pod {
     }
 
     // Local fallback
-    const generator = routeChatCompletion(modelReq, messages, false);
+    const generator = routeChatCompletion(modelReq, messages, false, undefined, system);
     let result;
     for await (const chunk of generator) { result = chunk; }
     return (result as any).choices[0].message.content;
@@ -229,7 +229,17 @@ export class Pod {
       text = lines.filter(l => !l.trim().startsWith("```")).join("\n").trim();
     }
     try {
-      return JSON.parse(text);
+      const parsed = JSON.parse(text);
+      // If it's a standard Rhea response with an 'answer' key, return it.
+      // Otherwise, if it's a raw JSON object (like a Plan), wrap it so 'answer' is the full string.
+      if (parsed.answer) return parsed;
+      return {
+        answer: text,
+        confidence: "high",
+        confident: true,
+        modifications: null,
+        unresolved: null
+      };
     } catch (e) {
       return {
         answer: raw,
@@ -275,33 +285,8 @@ export class Pod {
   }
 
   async plan(requirement: string, context: string = ""): Promise<any[]> {
-    const system = getRolePrompt("planner");
-    const userContent = `Requirement: ${requirement}\n\nContext:\n${context}`;
-    const messages: Message[] = [{ role: "user", content: userContent }];
-
-    const modelReq = this.modelNames[0]; // Use the primary model for planning
-    const orderedServers = getOrderedServers(this.clientConfig);
-    
-    let rawPlan = "";
-
-    for (const server of orderedServers) {
-      try {
-        const generator = rpc(server, 'ask', { model: modelReq, messages, system, stream: false });
-        let result;
-        for await (const chunk of generator) { result = chunk; }
-        rawPlan = result.choices[0].message.content;
-        break;
-      } catch (e) {
-        // Continue to next server
-      }
-    }
-
-    if (!rawPlan) {
-      const generator = routeChatCompletion(modelReq, messages, false);
-      let result;
-      for await (const chunk of generator) { result = chunk; }
-      rawPlan = (result as any).choices[0].message.content;
-    }
+    const result = await this.debate(requirement, { context, mode: 'plan' });
+    const rawPlan = result.decision || "";
 
     try {
       // Clean up markdown
@@ -318,32 +303,11 @@ export class Pod {
   }
 
   async refine(requirement: string, changes: Record<string, string>): Promise<{ status: "APPROVED" | "REVISIONS NEEDED", feedback?: string }> {
-    const system = getRolePrompt("refinery");
     const changesText = Object.entries(changes).map(([file, content]) => `FILE: ${file}\n---\n${content}\n---`).join("\n\n");
-    const userContent = `Original Requirement: ${requirement}\n\nProposed Changes:\n${changesText}`;
-    const messages: Message[] = [{ role: "user", content: userContent }];
-
-    const modelReq = this.modelNames[0]; 
-    const orderedServers = getOrderedServers(this.clientConfig);
+    const question = `Original Requirement: ${requirement}\n\nProposed Changes:\n${changesText}`;
     
-    let rawResponse = "";
-
-    for (const server of orderedServers) {
-      try {
-        const generator = rpc(server, 'ask', { model: modelReq, messages, system, stream: false });
-        let result;
-        for await (const chunk of generator) { result = chunk; }
-        rawResponse = result.choices[0].message.content;
-        break;
-      } catch (e) { /* next */ }
-    }
-
-    if (!rawResponse) {
-      const generator = routeChatCompletion(modelReq, messages, false);
-      let result;
-      for await (const chunk of generator) { result = chunk; }
-      rawResponse = (result as any).choices[0].message.content;
-    }
+    const result = await this.debate(question, { mode: 'refine' });
+    const rawResponse = result.decision || "";
 
     if (rawResponse.includes("APPROVED")) {
       return { status: "APPROVED" };

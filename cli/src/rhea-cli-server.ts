@@ -211,7 +211,7 @@ if (command === 'rpc') {
 
       // 4. Handle ASK
       if (payload.action === 'ask') {
-        const generator = routeChatCompletion(payload.model, payload.messages, payload.stream, payload.sessionId);
+        const generator = routeChatCompletion(payload.model, payload.messages, payload.stream, payload.sessionId, payload.system);
         for await (const chunk of generator) {
           console.log(JSON.stringify(chunk));
         }

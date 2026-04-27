@@ -4,12 +4,16 @@ import { ServerProfile } from './config.js';
 export async function* rpc(
   server: ServerProfile, 
   action: string, 
-  payloadData = {}
+  params = {}
 ): AsyncGenerator<any> {
-  const payload = JSON.stringify({ action, token: server.token, ...payloadData });
+  const payload = JSON.stringify({ action, token: server.token, ...params });
   
   // Spawn SSH. We invoke `rhea-cli-server rpc` directly.
   const ssh = spawn('ssh', [server.host, 'rhea-cli-server', 'rpc']);
+  
+  ssh.stdin.write(payload);
+  ssh.stdin.end();
+
   let stderr = '';
 
   // Handle stdout as an ndjson stream
