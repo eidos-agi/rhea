@@ -10,13 +10,17 @@ import {
   loadClientConfig, 
   saveClientConfig,
   getOrderedServers, 
-  routeChatCompletion,
+  getImageModelNames,
+  getTextModelNames,
   rpc,
   Pod,
   loadSession,
   saveSession,
   injectEnvKeys,
-  defaultCodingProfile
+  defaultCodingProfile,
+  executeTextWithField,
+  ModelField,
+  RheaExecutionError
 } from "@rhea/lib";
 
 import { generateImage } from "@rhea/images";
@@ -41,7 +45,11 @@ const server = new Server(
  * Helper to get available logical models from providers.json
  */
 function getAvailableModels(): string[] {
-  return Object.keys(providers).filter(m => m !== 'draw');
+  return getTextModelNames(providers as any);
+}
+
+function getAvailableImageModels(): string[] {
+  return getImageModelNames(providers as any);
 }
 
 /**
@@ -51,28 +59,16 @@ async function executeRheaPrompt(model: string, prompt: string, sessionId?: stri
   const config = loadClientConfig();
   const history = sessionId ? loadSession(sessionId) : [];
   const messages = [...history, { role: 'user', content: prompt }];
-  
-  const orderedServers = getOrderedServers(config);
-  let finalContent = "";
-  let success = false;
-
-  for (const srv of orderedServers) {
-    try {
-      const generator = rpc(srv, 'ask', { model, messages, stream: false, sessionId });
-      let result;
-      for await (const chunk of generator) { result = chunk; }
-      finalContent = result.choices[0].message.content;
-      success = true;
-      break;
-    } catch (e) { /* next */ }
-  }
-
-  if (!success) {
-    const generator = routeChatCompletion(model, messages, false, sessionId);
-    let result;
-    for await (const chunk of generator) { result = chunk; }
-    finalContent = (result as any).choices[0].message.content;
-  }
+  const modelField = new ModelField(getAvailableModels());
+  const result = await executeTextWithField({
+    role: "ask",
+    requestedModel: model,
+    messages,
+    sessionId,
+    clientConfig: config,
+    modelField,
+  });
+  const finalContent = result.content;
 
   if (sessionId) {
     messages.push({ role: 'assistant', content: finalContent });
@@ -84,6 +80,7 @@ async function executeRheaPrompt(model: string, prompt: string, sessionId?: stri
 
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   const models = getAvailableModels();
+  const imageModels = getAvailableImageModels();
   const defaultModel = models[0] || "claude-pro";
 
   return {
@@ -137,6 +134,46 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         },
       },
       {
+        name: "rhea_simplify",
+        description: "Force a simpler solution — the Doubter's job is to find the human-simple answer. Use when AI is over-engineering. The Dreamer proposes the simplest possible solution; the Doubter challenges 'is this ACTUALLY simpler or just different?'; the Decider picks current vs simplified.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            problem: { type: "string", description: "The problem being solved" },
+            current_approach: { type: "string", description: "The current approach to the problem" },
+            context: { type: "string", description: "Optional background context" },
+          },
+          required: ["problem", "current_approach"],
+        },
+      },
+      {
+        name: "rhea_unstick",
+        description: "Break out of circular thinking — rotate perspectives when stuck. Use when you've tried multiple approaches and keep hitting the same wall. The Pod forces fresh perspectives by making the previous proposer become the critic.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            problem: { type: "string", description: "The problem we are stuck on" },
+            attempts_so_far: { type: "string", description: "What has been tried so far" },
+            why_stuck: { type: "string", description: "Optional: why we are stuck" },
+            context: { type: "string", description: "Optional background context" },
+          },
+          required: ["problem", "attempts_so_far"],
+        },
+      },
+      {
+        name: "rhea_challenge",
+        description: "Adversarial stress test — the Doubter tries to break a proposal. Use before committing to a significant decision. Stakes 'low' (quick), 'medium' (thorough), 'high' (exhaustive).",
+        inputSchema: {
+          type: "object",
+          properties: {
+            proposal: { type: "string", description: "The proposal to stress test" },
+            stakes: { type: "string", enum: ["low", "medium", "high"], description: "Stakes level: low (quick check), medium (thorough), high (exhaustive)", default: "medium" },
+            context: { type: "string", description: "Optional background context" },
+          },
+          required: ["proposal"],
+        },
+      },
+      {
         name: "rhea_status",
         description: "Check the status of configured Rhea servers and local providers.",
         inputSchema: { type: "object", properties: {} },
@@ -180,7 +217,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           properties: {
             prompt: { type: "string", description: "The image description" },
             output_path: { type: "string", description: "Where to save the resulting image locally" },
-            model: { type: "string", description: "Model name", default: "draw" },
+            model: { type: "string", enum: imageModels, description: "Model name", default: "draw" },
             session_id: { type: "string", description: "Optional session ID for multi-turn editing" },
             aspect_ratio: { type: "string", description: "Optional aspect ratio (e.g. 16:9, 1:1)" },
             size: { type: "string", description: "Optional size (e.g. 1k, 2k, 4k)" }
@@ -205,8 +242,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [{ type: "text", text: response }],
         };
       } catch (err: any) {
+        const trace = err instanceof RheaExecutionError ? `\nTrace:\n${JSON.stringify(err.attempts, null, 2)}` : "";
         return {
-          content: [{ type: "text", text: `Ask failed: ${err.message}` }],
+          content: [{ type: "text", text: `Ask failed: ${err.message}${trace}` }],
           isError: true,
         };
       }
@@ -313,13 +351,89 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
     }
 
+    case "rhea_simplify": {
+      const { problem, current_approach, context } = request.params.arguments as any;
+      const podModels = availableModels.slice(0, 3);
+      if (podModels.length === 0) {
+        return { content: [{ type: "text", text: "Error: No models configured in providers.json" }], isError: true };
+      }
+      // adversarial=0.0 — focused simplification, no random adversarial noise
+      const pod = new Pod(podModels, config, 0.0);
+      const question =
+        `The current approach to this problem is:\n${current_approach}\n\n` +
+        `The problem being solved is:\n${problem}\n\n` +
+        `Find the SIMPLEST possible solution. Think like a human, not an AI. ` +
+        `What would a pragmatic engineer with 20 years of experience do? ` +
+        `They would probably say 'why don't you just...' and suggest something ` +
+        `embarrassingly simple that works.`;
+      try {
+        const result = await pod.debate(question, { context: context || "", maxRounds: 2, timeLimit: 120 });
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      } catch (err: any) {
+        return { content: [{ type: "text", text: `Simplify failed: ${err.message}` }], isError: true };
+      }
+    }
+
+    case "rhea_unstick": {
+      const { problem, attempts_so_far, why_stuck, context } = request.params.arguments as any;
+      const podModels = availableModels.slice(0, 3);
+      if (podModels.length === 0) {
+        return { content: [{ type: "text", text: "Error: No models configured in providers.json" }], isError: true };
+      }
+      // adversarial=0.15 — higher rate to force fresh thinking when stuck
+      const pod = new Pod(podModels, config, 0.15);
+      const whyLine = why_stuck ? `Why we are stuck: ${why_stuck}` : "";
+      const question =
+        `We are STUCK on this problem:\n${problem}\n\n` +
+        `What has been tried so far:\n${attempts_so_far}\n\n` +
+        `${whyLine}\n\n` +
+        `IMPORTANT: Do NOT suggest any approach that has already been tried. ` +
+        `The previous attempts are listed above — they failed. ` +
+        `Think from a completely different angle. What assumption is everyone making ` +
+        `that might be wrong? What would someone from a different field suggest?`;
+      try {
+        const result = await pod.debate(question, { context: context || "", maxRounds: 3, timeLimit: 300 });
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      } catch (err: any) {
+        return { content: [{ type: "text", text: `Unstick failed: ${err.message}` }], isError: true };
+      }
+    }
+
+    case "rhea_challenge": {
+      const { proposal, stakes, context } = request.params.arguments as any;
+      const stakesLevel: string = stakes || "medium";
+      const podModels = availableModels.slice(0, 3);
+      if (podModels.length === 0) {
+        return { content: [{ type: "text", text: "Error: No models configured in providers.json" }], isError: true };
+      }
+      const roundsMap: Record<string, number> = { low: 1, medium: 2, high: 3 };
+      const maxRounds = roundsMap[stakesLevel] ?? 2;
+      const adversarial = stakesLevel === "high" ? 0.20 : 0.10;
+      const pod = new Pod(podModels, config, adversarial);
+      const question =
+        `STRESS TEST this proposal:\n${proposal}\n\n` +
+        `Stakes level: ${stakesLevel}\n\n` +
+        `The Doubter must find every flaw, edge case, failure mode, ` +
+        `and unintended consequence. Be adversarial. Be thorough. ` +
+        `The Dreamer defends the proposal — but honestly, acknowledging real weaknesses. ` +
+        `The Decider rules: does this proposal survive scrutiny?`;
+      try {
+        const result = await pod.debate(question, { context: context || "", maxRounds, timeLimit: 300 });
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      } catch (err: any) {
+        return { content: [{ type: "text", text: `Challenge failed: ${err.message}` }], isError: true };
+      }
+    }
+
     case "rhea_status": {
       const servers = Object.entries(config.servers).map(([name, srv]) => {
         return `${name === config.activeServer ? "*" : " "} ${name} (${srv.host})`;
       }).join("\n");
       const localModels = Object.keys(providers).join(", ");
+      const textModels = getAvailableModels().join(", ");
+      const imageModels = getAvailableImageModels().join(", ");
       
-      const statusText = `Remote Servers:\n${servers || "None"}\n\nLocal Models: ${localModels}`;
+      const statusText = `Remote Servers:\n${servers || "None"}\n\nText Models: ${textModels}\nImage Models: ${imageModels}\nAll Local Models: ${localModels}`;
       return {
         content: [{ type: "text", text: statusText }],
       };

@@ -60,12 +60,29 @@ export interface StreamChunk {
 
 const config = providers as Record<string, Provider>;
 
+export interface RouteAttemptOptions {
+  timeoutMs?: number;
+}
+
+export function getTextModelNames(providerConfig: Record<string, Provider> = config): string[] {
+  return Object.entries(providerConfig)
+    .filter(([, provider]) => provider.type === 'cli' || provider.type === 'openai')
+    .map(([name]) => name);
+}
+
+export function getImageModelNames(providerConfig: Record<string, Provider> = config): string[] {
+  return Object.entries(providerConfig)
+    .filter(([, provider]) => provider.type === 'image-api' || (provider.type === 'cli' && provider.cmd.includes('{output}')))
+    .map(([name]) => name);
+}
+
 export async function* routeChatCompletion(
   modelReq: string, 
   messages: Message[], 
   stream: boolean = false,
   sessionId?: string,
-  system?: string
+  system?: string,
+  options: RouteAttemptOptions = {}
 ): AsyncGenerator<StreamChunk | OpenAIResponse> {
   const provider = config[modelReq];
 
@@ -86,6 +103,12 @@ export async function* routeChatCompletion(
     const child = spawn(command, cmdArgs);
     let fullContent = '';
     let stderr = '';
+    let exitCode: number | null = null;
+    let timedOut = false;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      child.kill('SIGTERM');
+    }, options.timeoutMs ?? 45_000);
 
     // Catch spawn errors (e.g. command not found)
     child.on('error', (err: any) => {
@@ -118,10 +141,31 @@ export async function* routeChatCompletion(
     }
 
     // Wait for process to finish
-    await new Promise((resolve) => child.on('close', resolve));
+    await new Promise((resolve) => child.on('close', (code) => {
+      exitCode = code;
+      clearTimeout(timeout);
+      resolve(code);
+    }));
 
     if (stderr.trim()) {
       process.stderr.write(`CLI Provider Stderr (${modelReq}):\n${stderr}\n`);
+    }
+
+    if (timedOut) {
+      throw new Error(`CLI provider '${modelReq}' timed out after ${options.timeoutMs ?? 45_000}ms`);
+    }
+
+    const combined = `${stderr}\n${fullContent}`.toLowerCase();
+    if (combined.includes("not logged in") || combined.includes("please run /login") || combined.includes("opening authentication page")) {
+      throw new Error(`CLI provider '${modelReq}' requires authentication. ${stderr || fullContent}`.trim());
+    }
+
+    if (exitCode !== 0) {
+      throw new Error(`CLI provider '${modelReq}' exited with code ${exitCode}. ${stderr}`.trim());
+    }
+
+    if (!fullContent.trim()) {
+      throw new Error(`CLI provider '${modelReq}' returned empty output.`);
     }
 
     if (!stream) {
@@ -154,6 +198,8 @@ export async function* routeChatCompletion(
       ? provider.base_url 
       : `${provider.base_url.replace(/\/$/, '')}/chat/completions`;
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 45_000);
     const response = await fetch(endpoint, { 
       method: 'POST', 
       headers: {
@@ -161,13 +207,18 @@ export async function* routeChatCompletion(
         'Authorization': `Bearer ${apiKey}`,
         ...(provider.headers || {})
       }, 
-      body: JSON.stringify(payload) 
-    });
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeout));
 
-    if (!response.ok) throw new Error(`API error from ${endpoint}: ${response.status}`);
+    if (!response.ok) throw new Error(`API error from ${endpoint}: ${response.status} ${await response.text()}`);
 
     if (!stream) {
       const data = await response.json();
+      const content = (data as any)?.choices?.[0]?.message?.content;
+      if (!content || !String(content).trim()) {
+        throw new Error(`API provider '${modelReq}' returned empty output.`);
+      }
       yield data;
     } else {
       const reader = response.body?.getReader();

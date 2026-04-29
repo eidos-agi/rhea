@@ -6,3 +6,5 @@ export * from './prompts.js';
 export * from './pod.js';
 export * from './session.js';
 export * from './workflow.js';
+export * from './model-field.js';
+export * from './executor.js';

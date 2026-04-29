@@ -12,6 +12,7 @@ import {
   getOrderedServers, 
   rpc, 
   routeChatCompletion,
+  getTextModelNames,
   getCacheKey,
   getCachedResponse,
   saveToCache,
@@ -213,7 +214,7 @@ else if (command === 'doctor') {
     }
 
     console.log("\nPhase 3: Live Model Probes (Orchestration Health)");
-    const availableModels = Object.keys(providers).filter(m => m !== 'draw' && (providers as any)[m].type !== 'image-api');
+    const availableModels = getTextModelNames(providers as any);
     for (const model of availableModels) {
       process.stdout.write(`  🤔 Testing ${model.padEnd(20)} ... `);
       try {
@@ -501,7 +502,7 @@ else if (command === 'debate') {
   const verbose = args.includes('--verbose');
 
   (async () => {
-    const availableModels = Object.keys(providers).filter(m => m !== 'draw');
+    const availableModels = getTextModelNames(providers as any);
     const pod = new Pod(models || availableModels.slice(0, 3), config);
 
     if (verbose) {
@@ -510,6 +511,11 @@ else if (command === 'debate') {
           console.log(`  🤔 [${act.role.toUpperCase()}] ${act.model} is thinking...`);
         } else {
           console.log(`  ✅ [${act.role.toUpperCase()}] ${act.model} finished.`);
+          for (const attempt of act.attempts || []) {
+            if (attempt.outcome !== "success") {
+              console.log(`     ${act.role}: ${attempt.actualModel} -> ${attempt.outcome}`);
+            }
+          }
         }
       };
     }
@@ -593,7 +599,7 @@ else if (command === 'code') {
 
   (async () => {
     const { Pod, defaultCodingProfile } = await import('@rhea/lib');
-    const availableModels = Object.keys(providers).filter(m => m !== 'draw');
+    const availableModels = getTextModelNames(providers as any);
     const pod = new Pod(models || availableModels.slice(0, 3), config);
 
     if (verbose) {
@@ -602,6 +608,11 @@ else if (command === 'code') {
           console.log(`  🤔 [${act.role.toUpperCase()}] ${act.model} is thinking...`);
         } else {
           console.log(`  ✅ [${act.role.toUpperCase()}] ${act.model} finished.`);
+          for (const attempt of act.attempts || []) {
+            if (attempt.outcome !== "success") {
+              console.log(`     ${act.role}: ${attempt.actualModel} -> ${attempt.outcome}`);
+            }
+          }
         }
       };
     }

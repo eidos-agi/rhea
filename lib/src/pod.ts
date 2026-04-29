@@ -1,8 +1,9 @@
-import { routeChatCompletion, Message } from './router.js';
+import { Message } from './router.js';
 import { getRolePrompt } from './prompts.js';
-import { rpc } from './rpc.js';
-import { ClientConfig, ServerProfile, getOrderedServers } from './config.js';
+import { ClientConfig } from './config.js';
 import { WorkflowProfile, RoleDefinition, defaultCodingProfile } from './workflow.js';
+import { executeTextWithField, ExecuteTextOptions, ExecuteTextResult, RetryPolicy } from './executor.js';
+import { AttemptTrace, createSeed, ModelField } from './model-field.js';
 
 export interface PodRound {
   round: number;
@@ -11,6 +12,7 @@ export interface PodRound {
   decision: any;
   adversarial: boolean;
   roleMap: Record<string, string>;
+  attempts: AttemptTrace[];
 }
 
 export interface PodResult {
@@ -21,7 +23,22 @@ export interface PodResult {
   rounds: PodRound[];
   dissent: string[];
   rotation_count: number;
+  model_field_seed: string;
   resume_state?: any;
+}
+
+export interface PodOptions {
+  seed?: string;
+  retryPolicy?: Partial<RetryPolicy>;
+  modelField?: ModelField;
+  adversarialRate?: number;
+  textExecutor?: (options: ExecuteTextOptions) => Promise<ExecuteTextResult>;
+}
+
+interface RoleRunResult {
+  content: string;
+  model: string;
+  attempts: AttemptTrace[];
 }
 
 export class Pod {
@@ -30,9 +47,12 @@ export class Pod {
   private modelNames: string[];
   private adversarialRate: number;
   private clientConfig: ClientConfig;
-  public onActivity?: (data: { role: string, model: string, status: 'thinking' | 'done', content?: string }) => void;
+  private modelField: ModelField;
+  private retryPolicy?: Partial<RetryPolicy>;
+  private textExecutor: (options: ExecuteTextOptions) => Promise<ExecuteTextResult>;
+  public onActivity?: (data: { role: string, model: string, status: 'thinking' | 'done', content?: string, attempts?: AttemptTrace[] }) => void;
 
-  constructor(modelNames: string[], clientConfig: ClientConfig, adversarialRate: number = 0.07) {
+  constructor(modelNames: string[], clientConfig: ClientConfig, optionsOrAdversarialRate: PodOptions | number = 0.07) {
     // Ensure we have exactly 3 models by recycling if needed
     if (modelNames.length === 0) {
       throw new Error("At least one model must be provided for the Rhea Pod.");
@@ -43,7 +63,11 @@ export class Pod {
     }
     
     this.clientConfig = clientConfig;
-    this.adversarialRate = adversarialRate;
+    const options = typeof optionsOrAdversarialRate === "number" ? { adversarialRate: optionsOrAdversarialRate } : optionsOrAdversarialRate;
+    this.adversarialRate = options.adversarialRate ?? 0.07;
+    this.retryPolicy = options.retryPolicy;
+    this.modelField = options.modelField ?? new ModelField(this.modelNames, options.seed ?? createSeed());
+    this.textExecutor = options.textExecutor ?? executeTextWithField;
     
     // Shuffle initial roles
     for (let i = this.roles.length - 1; i > 0; i--) {
@@ -89,11 +113,13 @@ export class Pod {
       if (elapsed >= timeLimit) break;
 
       // 1. Dreamer
-      const proposal = await this.runRole(roles.dreamer, question, currentContext, rounds);
+      const proposalRun = await this.runRole(roles.dreamer, question, currentContext, rounds);
+      const proposal = proposalRun.content;
 
       // 2. Doubter
       const forceAdversarial = Math.random() < this.adversarialRate;
-      const critique = await this.runRole(roles.doubter, question, currentContext, rounds, { proposal, adversarial: forceAdversarial });
+      const critiqueRun = await this.runRole(roles.doubter, question, currentContext, rounds, { proposal, adversarial: forceAdversarial });
+      const critique = critiqueRun.content;
 
       // Check for clarification
       if (critique.trim().startsWith("CLARIFICATION NEEDED:")) {
@@ -104,14 +130,16 @@ export class Pod {
           critique,
           decision: { answer: "paused for clarification", confident: false },
           adversarial: forceAdversarial,
-          roleMap: this.getRoleMap()
+          roleMap: this.getRoleMap(),
+          attempts: [...proposalRun.attempts, ...critiqueRun.attempts]
         };
         rounds.push(round);
         return this.buildClarificationResult(rounds, clarificationQuestion);
       }
 
       // 3. Decider
-      const rawDecision = await this.runRole(roles.decider, question, currentContext, rounds, { proposal, critique });
+      const decisionRun = await this.runRole(roles.decider, question, currentContext, rounds, { proposal, critique });
+      const rawDecision = decisionRun.content;
       const decision = this.parseDeciderResponse(rawDecision);
 
       rounds.push({
@@ -120,12 +148,14 @@ export class Pod {
         critique,
         decision,
         adversarial: forceAdversarial,
-        roleMap: this.getRoleMap()
+        roleMap: this.getRoleMap(),
+        attempts: [...proposalRun.attempts, ...critiqueRun.attempts, ...decisionRun.attempts]
       });
 
       if (decision.confident || options.roles) break;
 
       this.rotate();
+      this.modelField.advance();
     }
 
     return this.buildResult(rounds);
@@ -137,7 +167,7 @@ export class Pod {
     context: string, 
     history: PodRound[],
     opts: { proposal?: string, critique?: string, adversarial?: boolean } = {}
-  ): Promise<string> {
+  ): Promise<RoleRunResult> {
     const system = getRolePrompt(role, opts.adversarial);
     
     let userContent = "";
@@ -164,36 +194,21 @@ export class Pod {
       this.onActivity({ role, model: modelReq, status: 'thinking' });
     }
 
-    // Execution with Fallback
-    const orderedServers = getOrderedServers(this.clientConfig);
-    
-    let resultText = "";
-
-    for (const server of orderedServers) {
-      try {
-        const generator = rpc(server, 'ask', { model: modelReq, messages, system, stream: false });
-        let result;
-        for await (const chunk of generator) { result = chunk; }
-        resultText = result.choices[0].message.content;
-        break;
-      } catch (e) {
-        // Continue to next server
-      }
-    }
-
-    if (!resultText) {
-      // Local fallback
-      const generator = routeChatCompletion(modelReq, messages, false, undefined, system);
-      let result;
-      for await (const chunk of generator) { result = chunk; }
-      resultText = (result as any).choices[0].message.content;
-    }
+    const result = await this.textExecutor({
+      role,
+      requestedModel: modelReq,
+      messages,
+      system,
+      clientConfig: this.clientConfig,
+      modelField: this.modelField,
+      retryPolicy: this.retryPolicy,
+    });
 
     if (this.onActivity) {
-      this.onActivity({ role, model: modelReq, status: 'done', content: resultText });
+      this.onActivity({ role, model: result.model, status: 'done', content: result.content, attempts: result.attempts });
     }
 
-    return resultText;
+    return result;
   }
 
   private rotate() {
@@ -258,7 +273,8 @@ export class Pod {
       rounds,
       dissent: [],
       rotation_count: this.rotationCount,
-      resume_state: { rounds, rotation_count: this.rotationCount }
+      model_field_seed: this.modelField.getSeed(),
+      resume_state: { rounds, rotation_count: this.rotationCount, model_field_seed: this.modelField.getSeed() }
     };
   }
 
@@ -270,7 +286,8 @@ export class Pod {
         confidence: "low",
         rounds: [],
         dissent: [],
-        rotation_count: 0
+        rotation_count: 0,
+        model_field_seed: this.modelField.getSeed()
       };
     }
     const last = rounds[rounds.length - 1];
@@ -280,7 +297,8 @@ export class Pod {
       confidence: last.decision.confidence,
       rounds,
       dissent: rounds.map(r => r.decision.unresolved).filter(u => u && u !== "null"),
-      rotation_count: this.rotationCount
+      rotation_count: this.rotationCount,
+      model_field_seed: this.modelField.getSeed()
     };
   }
 
