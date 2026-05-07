@@ -1,0 +1,47 @@
+{
+  "name": "rhea",
+  "version": "0.1.0",
+  "description": "Rhea MCP tools for sovereign model routing, Socratic debate, sessions, pairing, and image generation.",
+  "author": {
+    "name": "Eidos AGI",
+    "email": "TODO@example.com",
+    "url": "https://github.com/eidos-agi"
+  },
+  "homepage": "https://github.com/eidos-agi/rhea",
+  "repository": "https://github.com/eidos-agi/rhea",
+  "license": "CC-BY-NC-SA-4.0",
+  "keywords": [
+    "rhea",
+    "mcp",
+    "debate",
+    "reasoning",
+    "socratic",
+    "orchestration",
+    "model-routing"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Rhea",
+    "shortDescription": "Sovereign model routing and debate tools.",
+    "longDescription": "Rhea brings the Rhea sovereign model orchestration suite into Codex as MCP tools: ask local or remote subscription-backed model CLIs, run Dreamer/Doubter/Decider debates, pair remote servers, persist sessions, and generate images.",
+    "developerName": "Eidos AGI",
+    "category": "Productivity",
+    "capabilities": [
+      "MCP",
+      "Model Routing",
+      "Interactive"
+    ],
+    "websiteURL": "https://github.com/eidos-agi/rhea",
+    "privacyPolicyURL": "https://github.com/eidos-agi/rhea",
+    "termsOfServiceURL": "https://github.com/eidos-agi/rhea",
+    "defaultPrompt": [
+      "Use Rhea to debate this decision.",
+      "Ask Rhea using my local providers.",
+      "Have Rhea generate an image."
+    ],
+    "brandColor": "#111827",
+    "composerIcon": "./assets/plugin-icon.svg",
+    "logo": "./assets/plugin-logo.svg"
+  }
+}

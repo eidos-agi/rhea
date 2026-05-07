@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="Rhea icon">
+  <rect width="160" height="160" rx="36" fill="#0F172A"/>
+  <circle cx="80" cy="80" r="46" fill="none" stroke="#38BDF8" stroke-width="8"/>
+  <circle cx="80" cy="80" r="20" fill="#F8FAFC"/>
+  <circle cx="48" cy="52" r="13" fill="#A78BFA"/>
+  <circle cx="112" cy="52" r="13" fill="#22C55E"/>
+  <circle cx="80" cy="120" r="13" fill="#F59E0B"/>
+  <path d="M58 59l15 12M102 59L87 71M80 100V87" stroke="#CBD5E1" stroke-width="7" stroke-linecap="round"/>
+</svg>

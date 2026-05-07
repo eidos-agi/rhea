@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "rhea": {
+      "command": "node",
+      "args": [
+        "/Users/dshanklinbv/repos-eidos-agi/rhea/mcp/dist/index.js"
+      ],
+      "env": {
+        "RHEA_HOME": "/Users/dshanklinbv/.rhea"
+      }
+    }
+  }
+}
