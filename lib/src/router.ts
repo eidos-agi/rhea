@@ -1,5 +1,6 @@
 import { spawn } from 'child_process';
 import providers from '../../providers.json' with { type: 'json' };
+import { buildMemorySubstrate, mergeSystemWithMemory } from './memory.js';
 
 export interface CliProvider {
   type: 'cli';
@@ -90,7 +91,12 @@ export async function* routeChatCompletion(
     throw new Error(`Model '${modelReq}' not found in providers.json`);
   }
 
-  const prompt = (system ? `SYSTEM: ${system}\n\n` : "") + messages.map(m => `${m.role.toUpperCase()}:\n${m.content}`).join('\n\n');
+  const memorySubstrate = buildMemorySubstrate({ messages, sessionId, system });
+  const systemWithMemory = mergeSystemWithMemory(system, memorySubstrate);
+  const routedMessages = systemWithMemory
+    ? [{ role: 'system', content: systemWithMemory }, ...messages]
+    : messages;
+  const prompt = (systemWithMemory ? `SYSTEM: ${systemWithMemory}\n\n` : "") + messages.map(m => `${m.role.toUpperCase()}:\n${m.content}`).join('\n\n');
 
   if (provider.type === 'cli') {
     let args = provider.cmd.map(arg => arg.replace('{prompt}', '')); // Remove prompt from args
@@ -193,7 +199,7 @@ export async function* routeChatCompletion(
       throw new Error(`Missing environment variable: ${provider.api_key_env}`);
     }
 
-    const payload = { model: provider.upstream_model, messages, stream };
+    const payload = { model: provider.upstream_model, messages: routedMessages, stream };
     const endpoint = provider.base_url.endsWith('/chat/completions') 
       ? provider.base_url 
       : `${provider.base_url.replace(/\/$/, '')}/chat/completions`;
