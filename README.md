@@ -1,3 +1,5 @@
+> **[RETIRED]** This project was sunset on 2026-08-03. See [RETIRED.md](./RETIRED.md).
+
 <p align="center">
   <img src="https://raw.githubusercontent.com/eidos-agi/rhea/master/assets/rhea-banner.png" alt="Rhea AI Banner" width="800">
 </p>
